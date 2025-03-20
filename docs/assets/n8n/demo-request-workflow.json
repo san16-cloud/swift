@@ -1,0 +1,287 @@
+{
+  "name": "Demo Request Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "demo-request",
+        "options": {
+          "responseMode": "lastNode"
+        }
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json[\"formType\"]}}",
+              "operation": "equal",
+              "value2": "demo"
+            }
+          ]
+        }
+      },
+      "name": "Demo Request?",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "name",
+              "value": "={{$json[\"name\"]}}"
+            },
+            {
+              "name": "company",
+              "value": "={{$json[\"company\"]}}"
+            },
+            {
+              "name": "email",
+              "value": "={{$json[\"email\"]}}"
+            },
+            {
+              "name": "teamSize",
+              "value": "={{$json[\"teamSize\"]}}"
+            },
+            {
+              "name": "source",
+              "value": "={{$json[\"source\"]}}"
+            },
+            {
+              "name": "dateSubmitted",
+              "value": "={{$json[\"timestamp\"]}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Format Demo Data",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        660,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "email",
+              "value": "={{$json[\"email\"]}}"
+            },
+            {
+              "name": "source",
+              "value": "={{$json[\"source\"]}}"
+            },
+            {
+              "name": "dateSubmitted",
+              "value": "={{$json[\"timestamp\"]}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Format Whitepaper Data",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        660,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "mergeByPosition",
+        "join": {
+          "output": "string"
+        },
+        "output": {
+          "options": {
+            "response": {
+              "success": true
+            }
+          }
+        },
+        "options": {}
+      },
+      "name": "Response to Webhook",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        1200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": "public",
+        "table": "demo_requests",
+        "columns": "name, email, company, team_size, source, created_at",
+        "returnFields": "id",
+        "additionalFields": {}
+      },
+      "name": "Store Demo Request",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        860,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": "public",
+        "table": "whitepaper_downloads",
+        "columns": "email, source, created_at",
+        "returnFields": "id",
+        "additionalFields": {}
+      },
+      "name": "Store Whitepaper Request",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        860,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "info@lumix-labs.com",
+        "toEmail": "sales@lumix-labs.com",
+        "subject": "New Demo Request: {{$node[\"Format Demo Data\"].json[\"company\"]}}",
+        "text": "=New Demo Request Received:\n\nName: {{$node[\"Format Demo Data\"].json[\"name\"]}}\nCompany: {{$node[\"Format Demo Data\"].json[\"company\"]}}\nEmail: {{$node[\"Format Demo Data\"].json[\"email\"]}}\nTeam Size: {{$node[\"Format Demo Data\"].json[\"teamSize\"]}}\nSource: {{$node[\"Format Demo Data\"].json[\"source\"]}}\nDate: {{$node[\"Format Demo Data\"].json[\"dateSubmitted\"]}}\n\nPlease follow up within 24 hours.",
+        "options": {}
+      },
+      "name": "Send Internal Notification",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [
+        1040,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "info@lumix-labs.com",
+      "parameters": {
+        "fromEmail": "info@lumix-labs.com",
+        "toEmail": "={{$node[\"Format Whitepaper Data\"].json[\"email\"]}}",
+        "subject": "Your Swift by Lumix Labs Whitepaper",
+        "text": "=Thank you for your interest in Swift by Lumix Labs!\\n\\nYou can download your whitepaper here: https://lumix-labs.com/downloads/Swift-by-Lumix-Labs-Whitepaper.pdf\\n\\nIf you have any questions, please don't hesitate to contact us.\\n\\nBest regards,\\nThe Swift Team at Lumix Labs",
+        "options": {}
+      },
+        1040,
+        380
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Demo Request?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Demo Request?": {
+      "main": [
+        [
+          {
+            "node": "Format Demo Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Whitepaper Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Demo Data": {
+      "main": [
+        [
+          {
+            "node": "Store Demo Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Whitepaper Data": {
+      "main": [
+        [
+          {
+            "node": "Store Whitepaper Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Demo Request": {
+      "main": [
+        [
+          {
+            "node": "Send Internal Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Whitepaper Request": {
+      "main": [
+        [
+          {
+            "node": "Send Whitepaper Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Internal Notification": {
+      "main": [
+        [
+          {
+            "node": "Response to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Whitepaper Email": {
+      "main": [
+        [
+          {
+            "node": "Response to Webhook",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  }
+}
