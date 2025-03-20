@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', function() {
   // Get all forms
-  const betaForm = document.getElementById('demo-form'); // Keeping the ID but changing the purpose
+  const betaForm = document.getElementById('demo-form'); 
   const newsletterForm = document.getElementById('newsletter-form');
   
   // Determine which webhook URL to use based on current environment
@@ -62,14 +62,14 @@ document.addEventListener('DOMContentLoaded', function() {
       })
       .then(data => {
         // Show success message
-        betaForm.innerHTML = '<div class="success-message"><h3>Thank you for joining our beta!</h3><p>We\'ll notify you when beta access becomes available. We\'re currently building in public and will keep you updated on our progress.</p></div>';
+        betaForm.innerHTML = '<div class="success-message"><h3>Thank you for your interest!</h3><p>We\'ll keep you updated on our development progress. We\'re building in public and will share updates as we make progress.</p></div>';
         
         // Track form submission event (if analytics is set up)
         if (typeof gtag === 'function') {
           gtag('event', 'beta_registration', {
             'event_category': 'form',
-            'event_label': 'beta_access',
-            'product_focus': 'bigtech_capabilities'
+            'event_label': 'beta_interest',
+            'product_focus': 'engineering_tools'
           });
         }
       })
@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const successMessage = document.createElement('div');
         successMessage.className = 'success-message';
-        successMessage.innerHTML = '<p>Thanks for subscribing! We\'ll send you weekly updates on our build journey.</p>';
+        successMessage.innerHTML = '<p>Thanks for subscribing! We\'ll send you updates as we build Swift.</p>';
         formContainer.appendChild(successMessage);
         
         // Track form submission event (if analytics is set up)
