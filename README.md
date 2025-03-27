@@ -1,4 +1,5 @@
 # Swift by Lumix Labs
+[![smithery badge](https://smithery.ai/badge/@lumix-labs/swift)](https://smithery.ai/server/@lumix-labs/swift)
 
 Ship Legacy Code 5x Faster Without Risky Rewrites
 
