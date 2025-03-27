@@ -1,0 +1,22 @@
+{
+    "compilerOptions": {
+      "target": "ESNext",
+      "module": "NodeNext",
+      "moduleResolution": "NodeNext",
+      "esModuleInterop": true,
+      "outDir": "./build",
+      "rootDir": "./src",
+      "strict": true,
+      "skipLibCheck": true,
+      "forceConsistentCasingInFileNames": true,
+      "resolveJsonModule": true,
+      "baseUrl": ".",
+      "paths": {
+        "zod": ["node_modules/zod/lib/index.d.ts"],
+        "zod/*": ["node_modules/zod/lib/*"]
+      }
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules", "build"]
+  }
+  
