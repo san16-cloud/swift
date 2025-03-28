@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-
+rm -rf build
 echo "Building TypeScript..."
 npm run build
 
@@ -15,4 +15,4 @@ else
 fi
 
 # Clean up build artifacts if needed
-# rm -rf build
+rm -rf build
