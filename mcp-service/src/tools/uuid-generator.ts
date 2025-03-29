@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { logInfo } from '../utils/logFormatter.js';
 
 /**
  * UUID Generator Tool
@@ -88,6 +89,10 @@ function generateUuid(input: UuidGeneratorInput): string[] {
  * Register the UUID Generator tool with the MCP server
  */
 export function registerUuidGeneratorTool(server: McpServer) {
+  const TOOL_NAME = 'uuid-generator';
+  const SERVICE_NAME = 'swift-mcp-service';
+  const SERVICE_VERSION = '1.0.0';
+  
   server.tool('uuid-generator', 
     'Generates one or more UUIDs with various format options',
     {
@@ -99,7 +104,21 @@ export function registerUuidGeneratorTool(server: McpServer) {
     async (input: UuidGeneratorInput) => {
       const uuids = generateUuid(input);
       
+      logInfo(`Generated ${uuids.length} UUIDs with format: ${input.format}`, SERVICE_NAME, SERVICE_VERSION, {
+        context: {
+          tool: TOOL_NAME,
+          count: uuids.length,
+          format: input.format,
+          version: input.version
+        }
+      });
+      
+      // Format response according to MCP SDK requirements
       return {
+        // Include data in the response for clients that might need it
+        uuids: uuids,
+        count: uuids.length,
+        // Content array is required by MCP SDK
         content: [
           {
             type: "text",
@@ -110,5 +129,5 @@ export function registerUuidGeneratorTool(server: McpServer) {
     }
   );
   
-  console.log('UUID Generator tool registered successfully');
+  logInfo(`${TOOL_NAME} tool registered successfully`, SERVICE_NAME, SERVICE_VERSION);
 }

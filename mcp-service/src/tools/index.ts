@@ -1,5 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerUuidGeneratorTool } from './uuid-generator.js';
+import { registerRepoAnalyzerTool } from './repo-analyzer/index.js';
+import { logInfo } from '../utils/logFormatter.js';
 
 /**
  * Register all tools with the MCP server
@@ -10,11 +12,15 @@ import { registerUuidGeneratorTool } from './uuid-generator.js';
  * @param server - The MCP server instance
  */
 export function registerAllTools(server: McpServer) {
+  const SERVICE_NAME = 'swift-mcp-service';
+  const SERVICE_VERSION = '1.0.0';
+
   // Register individual tools
   registerUuidGeneratorTool(server);
+  registerRepoAnalyzerTool(server);
   
   // Register additional tools here
   // registerAnotherTool(server);
   
-  console.log('All tools registered successfully');
+  logInfo('All tools registered successfully', SERVICE_NAME, SERVICE_VERSION);
 }
