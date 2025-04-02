@@ -15,3 +15,4 @@ export * from './crossReferenceAnalyzer.js';
 export * from './flowAnalyzer.js';
 export * from './visualizationAnalyzer.js';
 export * from './impactAnalyzer.js';
+export * from './codeQuality/index.js';
