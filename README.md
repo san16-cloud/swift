@@ -13,6 +13,88 @@ Swift by Lumix Labs helps engineering leaders transform legacy systems from inno
 - Reduce technical debt costs by up to 40%
 - Zero-disruption implementation
 - Cut legacy system incidents by 60%
+- Analyze repository composition with language and code quality metrics
+- Identify technical debt hotspots for targeted modernization
+
+## Setup Guide for Engineers
+
+### Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- [Claude membership](https://claude.ai/)
+- Git
+
+### Installation Steps
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/lumix-labs/swift.git
+   cd swift/mcp-server
+   ```
+
+2. Build the Docker image:
+   ```bash
+   ./build.sh
+   ```
+   This will create a Docker image named `swift-mcp-server` that you can see in Docker Desktop.
+
+### Connecting Claude to Swift
+
+1. Open Claude Desktop application
+2. Go to Settings → Developer → Edit Config
+3. Add the following configuration block:
+
+   ```json
+   {
+    "mcpServers": {
+     "swift-mcp-server": {
+       "command": "docker",
+       "args": [
+         "run",
+         "-i",
+         "--rm",
+         "-v",
+         "/path/to/your/repo1:/repo1",
+         "-v",
+         "/path/to/your/repo2:/repo2",
+         "-w",
+         "/",
+         "swift-mcp-server"
+       ]
+     }
+    }
+   }
+   ```
+
+4. Replace the paths in the `-v` arguments with the absolute paths to your local repositories:
+   - The format is: `/your/local/path:/mounted/path`
+   - For simplicity, the right side (mounted path) should be a simple name at the root level
+   - Example:
+     ```
+     "-v",
+     "/Users/username/projects/my-app:/my-app",
+     ```
+
+5. Save and restart Claude
+
+Now Claude is connected to your MCP server and can access your local repositories!
+
+### Available Tools
+
+- **Repo Analyzer**: Analyzes repository structure showing language distribution and code quality metrics
+- **UUID Generator**: Generates UUIDs in various formats
+
+### Usage Examples
+
+Ask Claude to analyze a repository:
+```
+Can you analyze the repository at /my-repo using repo-analyzer with language analysis and code quality metrics?
+```
+
+Generate a UUID:
+```
+Can you generate a UUID for me?
+```
 
 ## Documentation
 
@@ -31,25 +113,6 @@ To run the website locally:
 3. Run `bundle install` to install dependencies
 4. Run `bundle exec jekyll serve` to start a local server
 5. Visit `http://localhost:4000` in your browser
-
-### Making Changes
-
-- Edit the Markdown files in `/docs` to update content
-- Modify `_config.yml` to change site-wide settings
-- Update CSS in `/docs/assets/css/style.scss`
-
-### Demo Request Feature
-
-The website includes a demo request form that connects to n8n for lead capture and email notifications:
-
-- Form submissions are sent to an n8n workflow via webhook
-- Leads are stored in a database and trigger email notifications
-
-To configure the n8n webhook:
-
-1. Set up the n8n workflow following the instructions in the integration doc
-2. Update the `N8N_WEBHOOK_URL` variable in `docs/assets/js/form-handler.js`
-3. Test the form submission to ensure proper functionality
 
 ## License
 

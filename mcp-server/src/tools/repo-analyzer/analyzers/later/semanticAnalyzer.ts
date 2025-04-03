@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { scanDirectory } from '../utils/fileUtils.js';
-import { validateRepositoryPath } from '../utils/pathUtils.js';
+import { scanDirectory } from '../../utils/fileUtils.js';
+import { validateRepositoryPath } from '../../utils/pathUtils.js';
 
 /**
  * Represents a code symbol (function, class, variable, etc.)

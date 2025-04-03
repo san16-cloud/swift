@@ -8,7 +8,8 @@ import {
   analyzeCrossReferences,
   analyzeFlows,
   generateVisualizations,
-  analyzeChangeImpact
+  analyzeChangeImpact,
+  analyzeCodeQuality
 } from './analyzers/index.js';
 import { logInfo, logError } from '../../utils/logFormatter.js';
 
@@ -83,6 +84,13 @@ const RepoAnalyzerInputSchema = z.object({
     .default(false)
     .describe('Whether to perform change impact analysis'),
   
+  // Whether to perform code quality analysis
+  includeCodeQuality: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe('Whether to analyze code quality metrics'),
+  
   // Paths to exclude from analysis (optional)
   excludePaths: z
     .array(z.string())
@@ -115,6 +123,7 @@ export function registerRepoAnalyzerTool(server: McpServer) {
       includeFlowAnalysis: z.boolean().optional().default(false).describe('Whether to analyze data and control flow'),
       includeVisualizations: z.boolean().optional().default(false).describe('Whether to generate visualization data structures'),
       includeImpactAnalysis: z.boolean().optional().default(false).describe('Whether to perform change impact analysis'),
+      includeCodeQuality: z.boolean().optional().default(false).describe('Whether to analyze code quality metrics'),
       excludePaths: z.array(z.string()).optional().default(['node_modules', 'dist', '.git', 'build']).describe('Paths to exclude from analysis (e.g., node_modules)')
     },
     async (input: RepoAnalyzerInput) => {
@@ -130,6 +139,7 @@ export function registerRepoAnalyzerTool(server: McpServer) {
           includeFlowAnalysis,
           includeVisualizations,
           includeImpactAnalysis,
+          includeCodeQuality,
           excludePaths 
         } = input;
         
@@ -215,6 +225,12 @@ export function registerRepoAnalyzerTool(server: McpServer) {
             analysisResults.flows.dataFlows,
             analysisResults.crossReferences.references
           );
+        }
+        
+        // Perform code quality analysis if requested
+        if (includeCodeQuality) {
+          logInfo('Starting code quality analysis...', SERVICE_NAME, SERVICE_VERSION);
+          analysisResults.codeQuality = await analyzeCodeQuality(repositoryPath, excludePaths);
         }
         
         // Format the response text
@@ -439,6 +455,97 @@ function formatAnalysisResults(results: any): string {
     }
     
     output += `\nIsolated files (no dependencies): ${isolatedFiles.length}\n\n`;
+  }
+  
+  // Add code quality metrics if available
+  if (results.codeQuality) {
+    output += '### Code Quality Metrics\n\n';
+    
+    const { complexity, longFunctions, duplications, commentRatios, excessiveComments, overallScore } = results.codeQuality;
+    
+    output += `Overall Code Quality Score: ${overallScore}/100\n\n`;
+    
+    // Complexity metrics
+    const complexityValues = Object.values(complexity) as number[];
+    const avgComplexity = complexityValues.length > 0
+      ? complexityValues.reduce((sum, value) => sum + value, 0) / complexityValues.length
+      : 0;
+    
+    output += `Average Cyclomatic Complexity: ${avgComplexity.toFixed(1)}\n\n`;
+    
+    if (complexityValues.length > 0) {
+      output += 'Files with highest complexity:\n\n';
+      
+      const highComplexityFiles = Object.entries(complexity)
+        .sort((a, b) => (b[1] as number) - (a[1] as number))
+        .slice(0, 5);
+      
+      for (const [file, score] of highComplexityFiles) {
+        output += `- ${file}: ${score}\n`;
+      }
+      
+      output += '\n';
+    }
+    
+    // Long functions metrics
+    if (longFunctions.length > 0) {
+      output += `Long Functions/Methods: ${longFunctions.length}\n\n`;
+      output += 'Top 5 longest functions:\n\n';
+      output += '| File | Line | Function | Length |\n';
+      output += '|------|------|----------|--------|\n';
+      
+      for (const fn of longFunctions.slice(0, 5)) {
+        output += `| ${fn.file} | ${fn.line} | ${fn.name} | ${fn.length} |\n`;
+      }
+      
+      output += '\n';
+    } else {
+      output += 'No excessively long functions detected.\n\n';
+    }
+    
+    // Duplication metrics
+    if (duplications.length > 0) {
+      const totalDuplicatedLines = duplications.reduce((sum: number, dup: any) => sum + dup.lineCount, 0);
+      const totalLinesOfCode = Object.values(commentRatios)
+        .reduce((sum: number, ratio: any) => sum + ratio.codeLines, 0);
+      const duplicationPercentage = totalLinesOfCode > 0
+        ? (totalDuplicatedLines / totalLinesOfCode) * 100
+        : 0;
+      
+      output += `Code Duplication: ${duplicationPercentage.toFixed(1)}% of codebase\n`;
+      output += `Duplicated Blocks: ${duplications.length}\n\n`;
+      
+      output += 'Largest duplicated blocks:\n\n';
+      for (const dup of duplications.slice(0, 3)) {
+        output += `- ${dup.lineCount} lines duplicated across ${dup.files.length} locations: ${dup.files.slice(0, 2).join(', ')}${dup.files.length > 2 ? ` and ${dup.files.length - 2} more...` : ''}\n`;
+      }
+      
+      output += '\n';
+    } else {
+      output += 'No significant code duplication detected.\n\n';
+    }
+    
+    // Comment metrics
+    if (Object.keys(commentRatios).length > 0) {
+      const totalCode = Object.values(commentRatios)
+        .reduce((sum: number, ratio: any) => sum + ratio.codeLines, 0);
+      const totalComments = Object.values(commentRatios)
+        .reduce((sum: number, ratio: any) => sum + ratio.commentLines, 0);
+      const overallRatio = totalCode > 0 ? (totalComments / totalCode) * 100 : 0;
+      
+      output += `Overall Code-to-Comment Ratio: ${overallRatio.toFixed(1)}%\n`;
+      
+      if (excessiveComments.length > 0) {
+        output += `Files with excessive comments: ${excessiveComments.length}\n\n`;
+        
+        for (const file of excessiveComments.slice(0, 5)) {
+          const ratio = commentRatios[file];
+          output += `- ${file}: ${(ratio.ratio * 100).toFixed(1)}% comments${ratio.commentedOutCode ? ' (contains commented-out code)' : ''}\n`;
+        }
+        
+        output += '\n';
+      }
+    }
   }
   
   return output;

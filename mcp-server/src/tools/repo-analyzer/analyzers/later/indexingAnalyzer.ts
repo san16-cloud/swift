@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { scanDirectory } from '../utils/fileUtils.js';
-import { validateRepositoryPath } from '../utils/pathUtils.js';
+import { scanDirectory } from '../../utils/fileUtils.js';
+import { validateRepositoryPath } from '../../utils/pathUtils.js';
 
 /**
  * File metadata from the indexing process
