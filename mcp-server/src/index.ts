@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { registerAllTools } from './tools/index.js';
 import { LogLevel, logInfo, logError } from './utils/logFormatter.js';
+import { validateClientToolExposure, logClientToolValidation, REQUIRED_CLIENT_TOOLS } from './utils/clientConfig.js';
 
 /**
  * Main entry point for the MCP service
@@ -22,8 +23,31 @@ async function main() {
       description: 'Swift MCP Server with various utility tools'
     });
 
-    // Register all tools
-    registerAllTools(server);
+    // Track registered tools manually since McpServer doesn't expose getTools()
+    const registeredTools: string[] = [];
+    
+    // Register all tools and track them manually
+    registerAllTools(server, registeredTools);
+    
+    // Verify tool registration for client exposure
+    const validationResults = validateClientToolExposure(registeredTools);
+    logClientToolValidation(validationResults);
+    
+    // If any required tools are missing, log an error but continue startup
+    if (!validationResults.allToolsExposed) {
+      logError(
+        'One or more required tools are not properly registered for client exposure',
+        SERVICE_NAME,
+        SERVICE_VERSION,
+        new Error('Tool registration validation failed'),
+        {
+          context: {
+            missingTools: validationResults.missingTools,
+            registeredTools
+          }
+        }
+      );
+    }
     
     // Create a transport mechanism (using stdio for this example)
     const transport = new StdioServerTransport();
@@ -46,6 +70,7 @@ async function main() {
     await server.connect(transport);
     
     logInfo('MCP service started successfully', SERVICE_NAME, SERVICE_VERSION);
+    logInfo(`Available tools: ${registeredTools.join(', ')}`, SERVICE_NAME, SERVICE_VERSION);
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     logError('Failed to start MCP service', SERVICE_NAME, SERVICE_VERSION, err);

@@ -19,9 +19,14 @@
         <div class="logo">
           <a href="#"><img src="assets/images/swiftlogo.png" alt="Swift Logo" height="50"></a>
         </div>
-        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
-          <i class="fas fa-moon"></i>
-        </button>
+        <div>
+          <a href="https://github.com/lumix-labs/swift" class="github-corner" aria-label="View source on GitHub" target="_blank">
+            <i class="fab fa-github"></i> GitHub
+          </a>
+          <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+            <i class="fas fa-moon"></i>
+          </button>
+        </div>
       </div>
     </div>
   </header>
@@ -193,6 +198,7 @@
           <div class="quote">
             <p>We're currently in development and looking for early feedback. If you're interested in these capabilities, we'd love to hear about your specific challenges and requirements.</p>
             <p>Join our beta program below to help shape our product direction and be among the first to test our tools.</p>
+            <p><strong>Want to contribute or check our progress?</strong> Visit our <a href="https://github.com/lumix-labs/swift" target="_blank">GitHub repository</a>!</p>
           </div>
         </div>
       </div>
@@ -333,7 +339,7 @@
         <div class="follow-option">
           <div class="follow-icon"><i class="fab fa-github"></i></div>
           <h3>GitHub</h3>
-          <p>Star our repository and watch our open development process. Contribute ideas through issues and discussions.</p>
+          <p>Star our <a href="https://github.com/lumix-labs/swift" target="_blank">repository</a> and watch our open development process. Contribute ideas through issues and discussions.</p>
         </div>
         
         <div class="follow-option">
@@ -353,7 +359,10 @@
     <div class="container">
       <h2>Building the future of engineering tools</h2>
       <p>Join us as we build the next generation of developer productivity tools.</p>
-      <a href="#beta-signup" class="btn btn-lg">Join Beta Program</a>
+      <div class="cta-buttons">
+        <a href="#beta-signup" class="btn btn-lg">Join Beta Program</a>
+        <a href="https://github.com/lumix-labs/swift" target="_blank" class="btn btn-outline btn-lg"><i class="fab fa-github"></i> View on GitHub</a>
+      </div>
     </div>
   </section>
 
@@ -365,7 +374,7 @@
           <p>BigTech Engineering Power Without BigTech Budgets</p>
           <div class="social-links">
             <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
-            <a href="https://github.com/lumixlabs" target="_blank" aria-label="GitHub"><i class="fab fa-github"></i></a>
+            <a href="https://github.com/lumix-labs/swift" target="_blank" aria-label="GitHub"><i class="fab fa-github"></i></a>
             <a href="#" aria-label="LinkedIn"><i class="fab fa-linkedin"></i></a>
           </div>
         </div>
@@ -382,12 +391,67 @@
       <div class="copyright">
         <p>Built for engineering leaders by engineering leaders</p>
         <p>&copy; 2025 Lumix Labs. All rights reserved.</p>
+        <p><a href="https://github.com/lumix-labs/swift" target="_blank" class="github-link">View on GitHub <i class="fab fa-github"></i></a> • We're building in public!</p>
       </div>
       <div class="cookie-notice">
         <p>We use cookies to provide essential functionality and improve your experience. By using this site, you consent to our use of cookies. <a href="#">Privacy Policy</a> <button class="btn btn-sm">Cookie Preferences</button></p>
       </div>
     </div>
   </footer>
+
+  <style>
+    .github-corner {
+      display: inline-flex;
+      align-items: center;
+      margin-right: 15px;
+      padding: 8px 12px;
+      background-color: var(--primary-color);
+      color: white;
+      border-radius: 4px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+    
+    .github-corner:hover {
+      background-color: var(--secondary-color);
+      transform: translateY(-2px);
+    }
+    
+    .github-corner i {
+      margin-right: 5px;
+    }
+    
+    .github-link {
+      display: inline-flex;
+      align-items: center;
+      color: #d1d5db;
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.3s;
+    }
+    
+    .github-link:hover {
+      color: var(--accent-light);
+    }
+    
+    .github-link i {
+      margin-left: 5px;
+    }
+    
+    .cta-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 15px;
+    }
+    
+    @media (max-width: 480px) {
+      .cta-buttons {
+        flex-direction: column;
+      }
+    }
+  </style>
 
   <script src="assets/js/main.js"></script>
   <script src="assets/js/form-handler.js"></script>
