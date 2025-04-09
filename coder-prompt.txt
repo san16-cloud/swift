@@ -1,0 +1,21 @@
+# Code Task Implementation Guide
+
+## Path Requirements
+- Use absolute paths only: `/repoId/path/to/file.ext`
+
+## Task Implementation Workflow
+
+### 1. Task Analysis
+- Determine task type (feature, bug fix, refactor, etc.)
+- Identify requirements and constraints
+- Break complex tasks into subtasks
+
+### 2. Systematic Codebase Exploration
+- Map repository structure
+- Identify related components
+- Analyze existing patterns
+- Document key findings for implementation references
+
+### 3. Design Agreement
+- Propose high-level design with component relationships
+- Identify data flow and state

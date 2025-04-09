@@ -13,6 +13,8 @@ export const REQUIRED_CLIENT_TOOLS = [
   'uuid-generator',
   'repo-analyzer',
   'security-analyzer', // Ensuring security analyzer is explicitly included
+  'store-analytics',   // Add analytics storage tools
+  'get-analytics',
 ];
 
 /**

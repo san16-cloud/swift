@@ -1,7 +1,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { registerUuidGeneratorTool } from './uuid-generator.js';
+import { registerUuidGeneratorTool } from './uuid-generator/index.js';
 import { registerRepoAnalyzerTool } from './repo-analyzer/index.js';
 import { registerSecurityAnalyzerTool } from './security-analyzer/index.js';
+import { registerAnalyticsStorageTool } from './analytics-storage/index.js';
 import { logInfo, logError } from '../utils/logFormatter.js';
 
 /**
@@ -45,8 +46,12 @@ export function registerAllTools(server: McpServer, registeredTools: string[] = 
       }
     }
     
-    // Register additional tools here
-    // registerAnotherTool(server);
+    // Register analytics storage tools
+    registerAnalyticsStorageTool(server);
+    registeredTools.push('store-analytics');
+    registeredTools.push('get-analytics');
+    
+    logInfo('Analytics storage tools registered successfully', SERVICE_NAME, SERVICE_VERSION);
     
     logInfo('All tools registered successfully', SERVICE_NAME, SERVICE_VERSION);
   } catch (error) {
