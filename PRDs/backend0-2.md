@@ -171,3 +171,138 @@ Management endpoints: Highest limits
 7. Performance Optimization
 7.1 Caching Strategy
 
+Redis cache for analysis results
+TTL based on repository size
+Cache invalidation on repository update
+
+7.2 Query Optimization
+
+Index fields used in WHERE clauses
+Use database views for complex queries
+Implement pagination for list endpoints
+
+7.3 Response Optimization
+
+Compress HTTP responses
+Implement partial response with field selection
+Use ETags for caching
+
+8. Monitoring and Logging
+8.1 Request Logging
+
+Log all requests with unique request ID
+Capture method, path, status code, response time
+Mask sensitive data (API keys, tokens)
+
+8.2 Tool Execution Logging
+
+Log tool name, execution time, repository size
+Track success/failure rates
+Capture resource utilization
+
+8.3 Metrics Collection
+
+Route-based metrics (requests/sec, latency)
+Tool-based metrics (execution time, failure rate)
+System metrics (CPU, memory, disk)
+
+8.4 Alerting
+
+Alert on high error rates
+Alert on sustained high latency
+Alert on unusual authentication failures
+
+9. Testing Strategy
+9.1 Unit Testing
+
+Jest framework
+Test each tool in isolation
+Mock external dependencies
+
+9.2 Integration Testing
+
+Test API endpoints with database
+Test authentication flow
+Test tool execution with sample repositories
+
+9.3 Load Testing
+
+Simulate multiple concurrent users
+Test behavior under high load
+Identify performance bottlenecks
+
+10. Security Considerations
+10.1 API Key Storage
+
+Encrypt API keys at rest (AES-256)
+Store encryption key in environment variables
+Never log or expose full API keys
+
+10.2 Request Validation
+
+Validate all input parameters
+Sanitize file paths to prevent directory traversal
+Implement input size limits
+
+10.3 HTTPS
+
+Enforce HTTPS for all requests
+Set secure and httpOnly cookie flags
+Implement proper CORS policies
+
+11. MCP Server Integration
+11.1 Shared Code Structure
+src/
+  tools/
+    base-tool.ts
+    repo-analyzer/
+      shared/
+        analyzer.ts      # Shared logic
+      mcp-adapter.ts     # MCP-specific wrapper
+      api-adapter.ts     # API-specific wrapper
+11.2 Tool Adapter Pattern
+typescript// Base tool implementation
+class BaseAnalyzer {
+  analyze(options) { ... }
+}
+
+// MCP Adapter
+class MCPRepoAnalyzer extends BaseAnalyzer {
+  run(input) {
+    const options = this.parseInput(input);
+    return this.analyze(options);
+  }
+}
+
+// API Adapter
+class APIRepoAnalyzer extends BaseAnalyzer {
+  execute(req, res) {
+    const options = req.body;
+    const result = this.analyze(options);
+    return res.json({ status: 'success', data: result });
+  }
+}
+12. Implementation Timeline
+12.1 Phase 1: Core API (Weeks 1-2)
+
+Setup Express API server structure
+Implement authentication with Supabase
+Create tool adapters for API use
+
+12.2 Phase 2: Room & Repository Management (Weeks 3-4)
+
+Implement room and repository endpoints
+Create database schema and migrations
+Setup API key management
+
+12.3 Phase 3: Chat Functionality (Weeks 5-6)
+
+Implement chat endpoints
+Connect to LLM providers via stored API keys
+Test integration with frontend
+
+12.4 Phase 4: Monitoring & Optimization (Weeks 7-8)
+
+Implement logging and monitoring
+Add rate limiting
+Performance optimization
