@@ -5,7 +5,7 @@ Ship Legacy Code 5x Faster Without Risky Rewrites
 
 ## About
 
-Swift by Lumix Labs helps engineering leaders transform legacy systems from innovation bottlenecks to competitive advantages. Deploy faster, reduce incidents, and modernize incrementally without risky rewrites or expensive consultants.
+Swift  by Lumix Labs helps engineering leaders transform legacy systems from innovation bottlenecks to competitive advantages. Deploy faster, reduce incidents, and modernize incrementally without risky rewrites or expensive consultants.
 
 ## Key Features
 
