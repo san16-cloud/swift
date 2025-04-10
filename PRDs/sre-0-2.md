@@ -1,160 +1,246 @@
-DevOps Team Implementation Document
-1. Infrastructure Architecture
-1.1 Components Diagram
-┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐
-│ GitHub Actions  │──►│ Container Reg.  │──►│ Deployment Env. │
-└─────────────────┘   └─────────────────┘   └─────────────────┘
-        │                                            ▲
-        │                                            │
-        ▼                                            │
-┌─────────────────┐                         ┌─────────────────┐
-│ GitHub Secrets  │────────────────────────►│  Config Mgmt.   │
-└─────────────────┘                         └─────────────────┘
-1.2 Infrastructure as Code
+# SRE Implementation Strategy v0.2
 
-Use Terraform for infrastructure provisioning
-Docker Compose for local development
-Kubernetes manifests for container orchestration
+## 1. API Server Monitoring Framework
 
-2. Docker Configuration
-2.1 MCP Server Dockerfile
-dockerfileFROM node:18-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
+### 1.1 Health Metrics Collection
 
-FROM node:18-alpine
-WORKDIR /app
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY package*.json ./
-EXPOSE 3000
-CMD ["node", "dist/index.js"]
-2.2 API Server Dockerfile
-dockerfileFROM node:18-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
+```yaml
+scrape_configs:
+  - job_name: 'swift-api-server'
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['swift-api-server:8080']
+        labels:
+          service: 'api-server'
+          environment: '${ENV}'
 
-FROM node:18-alpine
-WORKDIR /app
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY package*.json ./
-EXPOSE 8080
-CMD ["node", "dist/api-server.js"]
-2.3 Multi-stage Optimization
+  - job_name: 'swift-api-server-endpoints'
+    metrics_path: '/metrics/endpoints'
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['swift-api-server:8080']
+        labels:
+          service: 'api-server'
+          metric_type: 'endpoint_performance'
+```
 
-Use build caching
-Layer optimization
-Minimal base images
+### 1.2 Key Performance Indicators (KPIs)
 
-3. GitHub Actions CI/CD
-3.1 Workflow Structure
-yamlname: Build and Deploy
+- **Availability**: 99.9% uptime for API server
+- **Latency**: P95 response time < 200ms for non-tool endpoints
+- **Tool Execution**: P95 execution time < 5s for standard tools
+- **Error Rate**: < 0.1% error rate for all requests
+- **Throughput**: Support for 100 concurrent users per instance
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+### 1.3 Service Level Objectives (SLOs)
 
-jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-      - name: Install dependencies
-        run: npm ci
-      - name: Run linting
-        run: npm run lint
+| Metric | Target | Measurement Window | Error Budget |
+|--------|--------|-------------------|-------------|
+| Availability | 99.9% | 30 days | 43 minutes |
+| API Latency | P95 < 200ms | 7 days | 5% |
+| Tool Execution | Success rate > 99.5% | 7 days | 0.5% |
+| Database Query | P95 < 100ms | 7 days | 5% |
 
-  test:
-    needs: lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-      - name: Install dependencies
-        run: npm ci
-      - name: Run tests
-        run: npm test
+## 2. Observability Implementation
 
-  build:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Build Docker images
-        run: |
-          docker build -t swift-mcp-server:${{ github.sha }} -f mcp-server/Dockerfile .
-          docker build -t swift-api-server:${{ github.sha }} -f api-server/Dockerfile .
-      - name: Push to container registry
-        run: |
-          echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-          docker tag swift-mcp-server:${{ github.sha }} ${{ secrets.DOCKER_USERNAME }}/swift-mcp-server:latest
-          docker tag swift-api-server:${{ github.sha }} ${{ secrets.DOCKER_USERNAME }}/swift-api-server:latest
-          docker push ${{ secrets.DOCKER_USERNAME }}/swift-mcp-server:latest
-          docker push ${{ secrets.DOCKER_USERNAME }}/swift-api-server:latest
+### 2.1 Instrumentation Strategy
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v3
-      - name: Deploy to production
-        run: |
-          # Deployment commands
-3.2 Branch Protection Rules
+```javascript
+// Application Instrumentation
+import { metrics, trace } from './observability';
 
-Require status checks to pass before merging
-Require PR reviews before merging
-Include administrators in restrictions
-Prevent force pushing
+// HTTP request metrics
+app.use((req, res, next) => {
+  const start = Date.now();
+  const requestId = uuidv4();
+  
+  // Add request ID to context
+  req.requestId = requestId;
+  res.setHeader('X-Request-ID', requestId);
+  
+  // Track response
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    metrics.httpRequest({
+      method: req.method,
+      path: req.route?.path || req.path,
+      statusCode: res.statusCode,
+      duration
+    });
+    
+    // Log request completion
+    logger.info('Request processed', {
+      requestId,
+      method: req.method,
+      path: req.path,
+      statusCode: res.statusCode,
+      duration,
+      userAgent: req.headers['user-agent'],
+      contentLength: res.getHeader('content-length')
+    });
+  });
+  
+  next();
+});
+```
 
-3.3 Approval Workflows
+### 2.2 Structured Logging
 
-Minimum 1 reviewer for non-critical changes
-Minimum 2 reviewers for critical components
-Required reviewers for sensitive areas
+```javascript
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  defaultMeta: { service: 'api-server' },
+  transports: [
+    new winston.transports.Console(),
+    // Production should use centralized logging system
+    process.env.NODE_ENV === 'production' 
+      ? new winston.transports.Http({
+          host: process.env.LOGGING_HOST,
+          path: process.env.LOGGING_PATH,
+          ssl: true
+        }) 
+      : null
+  ].filter(Boolean)
+});
+```
 
-4. Secrets Management
-4.1 GitHub Secrets
+### 2.3 Distributed Tracing
 
-DOCKER_USERNAME
-DOCKER_PASSWORD
-SUPABASE_URL
-SUPABASE_KEY
-JWT_SECRET
-PROD_DATABASE_URL
+- Implement OpenTelemetry for distributed tracing
+- Trace critical paths through the system:
+  - Authentication flow
+  - Tool execution
+  - Database queries
+  - External API calls
 
-4.2 Environment Variables
+```javascript
+// Trace configuration
+const provider = new NodeTracerProvider({
+  resource: new Resource({
+    [SemanticResourceAttributes.SERVICE_NAME]: 'swift-api-server',
+    [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV
+  })
+});
 
-Same naming convention for GitHub Secrets and .env files
-Runtime configuration via environment variables
-Secret injection through Kubernetes secrets
+// Add exporters
+provider.addSpanProcessor(
+  new BatchSpanProcessor(
+    new OTLPTraceExporter({
+      url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+    })
+  )
+);
 
-4.3 Local Development
+provider.register();
+const tracer = trace.getTracer('swift-api-server');
+```
 
-.env.example template for developers
-Documentation for required variables
-Secret rotation policy
+## 3. API Server Health Monitoring
 
-5. Scaling Strategy
-5.1 Auto-scaling Configuration
-yamlapiVersion: autoscaling/v2
+### 3.1 Health Check Endpoints
+
+```javascript
+// Basic liveness probe
+app.get('/health/liveness', (req, res) => {
+  res.status(200).json({ status: 'UP' });
+});
+
+// Readiness probe checking dependencies
+app.get('/health/readiness', async (req, res) => {
+  try {
+    // Check database connection
+    const dbStatus = await checkDatabaseConnection();
+    
+    // Check Redis connection if used
+    const redisStatus = await checkRedisConnection();
+    
+    // Overall status
+    const status = dbStatus.healthy && redisStatus.healthy ? 'UP' : 'DOWN';
+    
+    res.status(status === 'UP' ? 200 : 503).json({
+      status,
+      dependencies: {
+        database: dbStatus,
+        redis: redisStatus
+      },
+      time: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: 'DOWN',
+      error: error.message,
+      time: new Date().toISOString()
+    });
+  }
+});
+```
+
+### 3.2 Dependency Health Checks
+
+```javascript
+// Database health check
+async function checkDatabaseConnection() {
+  try {
+    const startTime = Date.now();
+    // Execute simple query
+    const { data } = await supabase.from('health_check').select('count').limit(1);
+    const duration = Date.now() - startTime;
+    
+    return {
+      healthy: true,
+      responseTime: duration,
+      message: 'Database connection successful'
+    };
+  } catch (error) {
+    logger.error('Database health check failed', { error });
+    return {
+      healthy: false,
+      error: error.message,
+      message: 'Database connection failed'
+    };
+  }
+}
+
+// Redis health check
+async function checkRedisConnection() {
+  try {
+    const startTime = Date.now();
+    await redisClient.ping();
+    const duration = Date.now() - startTime;
+    
+    return {
+      healthy: true,
+      responseTime: duration,
+      message: 'Redis connection successful'
+    };
+  } catch (error) {
+    logger.error('Redis health check failed', { error });
+    return {
+      healthy: false,
+      error: error.message,
+      message: 'Redis connection failed'
+    };
+  }
+}
+```
+
+### 3.3 Synthetic Monitoring
+
+- Implement external probes to check API availability and latency
+- Run synthetic transactions that exercise common user paths
+- Monitor from multiple geographic regions
+
+## 4. Auto-scaling Configuration
+
+### 4.1 Horizontal Pod Autoscaler
+
+```yaml
+apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: swift-api-server
@@ -163,7 +249,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: swift-api-server
-  minReplicas: 2
+  minReplicas: 3
   maxReplicas: 10
   metrics:
   - type: Resource
@@ -171,179 +257,447 @@ spec:
       name: cpu
       target:
         type: Utilization
-        averageUtilization: 80
-5.2 Load Balancing
+        averageUtilization: 65
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 75
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+    scaleUp:
+      stabilizationWindowSeconds: 60
+```
 
-Implement ingress controller
-Session affinity settings
-Health check endpoints
+### 4.2 Resource Quotas and Limits
 
-5.3 Resource Limits
-yamlresources:
+```yaml
+resources:
   requests:
-    memory: "256Mi"
-    cpu: "100m"
-  limits:
     memory: "512Mi"
+    cpu: "250m"
+  limits:
+    memory: "1Gi"
     cpu: "500m"
-6. Monitoring Setup
-6.1 Prometheus Configuration
-yamlscrape_configs:
-  - job_name: 'swift-api-server'
-    scrape_interval: 15s
-    static_configs:
-      - targets: ['swift-api-server:8080']
-        labels:
-          service: 'api-server'
+```
 
-  - job_name: 'swift-mcp-server'
-    scrape_interval: 15s
-    static_configs:
-      - targets: ['swift-mcp-server:3000']
-        labels:
-          service: 'mcp-server'
-6.2 Grafana Dashboards
+### 4.3 Load Testing Benchmarks
 
-API Server Performance
-MCP Server Metrics
-System Resource Utilization
-Error Rate Monitoring
+- **Baseline Performance**: 100 requests/second with < 100ms latency
+- **Maximum Throughput**: 500 requests/second with < 200ms latency
+- **Concurrency**: 1000 concurrent connections
+- **Tool Execution**: 25 concurrent tool executions per instance
 
-6.3 Alerting Rules
-yamlgroups:
-- name: swift-alerts
+## 5. Incident Response Plan
+
+### 5.1 Alerting Configuration
+
+```yaml
+groups:
+- name: swift-api-server-alerts
   rules:
   - alert: HighErrorRate
-    expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.05
+    expr: sum(rate(http_requests_total{service="api-server",status=~"5.."}[5m])) / sum(rate(http_requests_total{service="api-server"}[5m])) > 0.01
     for: 5m
     labels:
       severity: critical
     annotations:
-      summary: "High error rate detected"
-      description: "Error rate is above 5% for 5 minutes"
-7. Logging Strategy
-7.1 Log Collection
+      summary: "High API error rate"
+      description: "Error rate is above 1% for 5 minutes"
+      
+  - alert: SlowResponses
+    expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service="api-server"}[5m])) by (le)) > 0.2
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Slow API responses"
+      description: "95th percentile of API response time is above 200ms for 10 minutes"
+      
+  - alert: HighCPUUsage
+    expr: avg(rate(container_cpu_usage_seconds_total{container="swift-api-server"}[5m])) > 0.8
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High CPU usage"
+      description: "API server is using more than 80% CPU for 10 minutes"
+```
 
-Fluentd as log collector
-Forward to Elasticsearch
-Kibana for visualization
+### 5.2 Incident Severity Levels
 
-7.2 Log Format
-json{
-  "timestamp": "2025-04-09T12:34:56.789Z",
-  "level": "info",
-  "requestId": "req_abc123",
-  "component": "api-server",
-  "message": "Request processed successfully",
-  "metadata": {
-    "endpoint": "/api/tools/analyze-repo",
-    "statusCode": 200,
-    "responseTime": 123
+| Level | Description | Initial Response | Escalation Time |
+|-------|-------------|------------------|-----------------|
+| P1 | Service outage | Immediate | 5 minutes |
+| P2 | Degraded performance | 15 minutes | 30 minutes |
+| P3 | Non-critical component failure | 1 hour | 4 hours |
+| P4 | Minor issue | 1 day | N/A |
+
+### 5.3 Runbooks for Common Scenarios
+
+#### API Server High Error Rate
+
+1. Check API server logs for error patterns
+2. Verify database connectivity
+3. Check recent deployments
+4. Validate external dependencies
+5. If needed, rollback to last known good version
+
+#### Memory Leak Detection
+
+1. Capture heap dump from affected instances
+2. Analyze memory usage patterns
+3. Check for leaked connections or resources
+4. Apply temporary mitigation (restart)
+5. Implement long-term fix
+
+## 6. Zero-Downtime Deployment Strategy
+
+### 6.1 Blue-Green Deployment
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: swift-api-server
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  rules:
+  - host: api.swift.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: swift-api-server-blue  # or swift-api-server-green
+            port:
+              number: 8080
+```
+
+### 6.2 Canary Releases
+
+- Deploy new version to 10% of instances
+- Monitor error rates and performance
+- Gradually increase traffic to new version
+- Automatic rollback on error threshold breach
+
+### 6.3 Database Migration Strategy
+
+- Use versioned migrations
+- Ensure backward compatibility
+- Apply schema changes before code changes
+- Implement feature flags for major changes
+
+```javascript
+// Database migration script example
+async function runMigrations() {
+  try {
+    logger.info('Starting database migrations');
+    
+    // Apply migrations sequentially
+    const migrations = await getMigrationFiles();
+    for (const migration of migrations) {
+      logger.info(`Applying migration: ${migration.name}`);
+      await executeQuery(migration.content);
+      await recordMigration(migration.name);
+    }
+    
+    logger.info('Database migrations completed successfully');
+  } catch (error) {
+    logger.error('Migration failed', { error });
+    throw error;
   }
 }
-7.3 Retention Policy
+```
 
-Hot storage: 7 days
-Warm storage: 30 days
-Cold storage: 90 days
+## 7. Security Monitoring
 
-8. Disaster Recovery
-8.1 Backup Schedule
+### 7.1 Authentication Monitoring
 
-Database: Daily full backup, hourly incremental
-Configuration: Version controlled, backed up with each change
-User content: Regular snapshots
+- Track authentication failures
+- Alert on abnormal patterns
+- Monitor for brute force attempts
+- Log IP addresses and user agents
 
-8.2 Recovery Plan
+### 7.2 API Rate Limiting
 
-Recovery Time Objective (RTO): 4 hours
-Recovery Point Objective (RPO): 1 hour
-Documented recovery procedures for various scenarios
+```javascript
+// Tool-specific rate limiting
+const toolRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: async (req, res) => {
+    // Get user tier from authenticated request
+    const userTier = req.user?.accountTier || 'free';
+    
+    // Return appropriate limit based on tier
+    const limits = {
+      'free': 10,      // 10 tool executions per 15 minutes
+      'pro': 50,       // 50 tool executions per 15 minutes
+      'enterprise': 200 // 200 tool executions per 15 minutes
+    };
+    
+    return limits[userTier] || limits.free;
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id || req.ip,
+  handler: (req, res) => {
+    logger.warn('Rate limit exceeded', { 
+      userId: req.user?.id,
+      ip: req.ip,
+      path: req.path
+    });
+    
+    res.status(429).json({
+      status: 'error',
+      code: 'rate_limit',
+      message: 'Rate limit exceeded. Please try again later.'
+    });
+  }
+});
+```
 
-8.3 Failover Procedures
+### 7.3 Vulnerability Scanning
 
-Database replica promotion
-Traffic redirection via DNS
-Cross-region deployment capability
+- Daily dependency scanning
+- Weekly container vulnerability scanning
+- Monthly penetration testing
+- Dynamic application security testing
 
-9. Security Hardening
-9.1 Container Security
+## 8. Data Retention and Backup Strategy
 
-Run containers as non-root
-Read-only file systems where possible
-Vulnerability scanning in CI pipeline
+### 8.1 Database Backup Schedule
 
-9.2 Network Security
+- Hourly incremental backups
+- Daily full backups
+- Weekly offsite backups
+- 30-day retention period for standard backups
+- 90-day retention period for monthly archives
 
-Internal service communication over TLS
-API gateway with rate limiting
-Network policies to restrict pod communication
+### 8.2 Backup Verification
 
-9.3 Security Scanning
+- Weekly restoration testing
+- Monthly disaster recovery drill
+- Automated backup verification
 
-Regular dependency scans (daily)
-Container image scanning
-Kubernetes manifest validation
+### 8.3 Data Purging Policy
 
-10. Performance Testing
-10.1 Load Testing Strategy
+- Remove inactive rooms after 90 days
+- Archive message data after 180 days
+- Remove tool execution logs after 30 days
 
-Simulate concurrent users
-API endpoint performance testing
-Tool execution timing
+## 9. Capacity Planning
 
-10.2 Performance Baselines
+### 9.1 Resource Projections
 
-API response time < 200ms (p95)
-Tool execution time varies by complexity
-Max concurrent users: 100 per node
+| Resource | Current | 3 Months | 6 Months | 12 Months |
+|----------|---------|----------|----------|-----------|
+| API Requests/day | 100K | 250K | 500K | 1M |
+| Tool Executions/day | 10K | 25K | 50K | 100K |
+| Storage (GB) | 50 | 100 | 200 | 500 |
+| Database Size (GB) | 20 | 50 | 100 | 250 |
 
-10.3 Testing Schedule
+### 9.2 Scaling Triggers
 
-Pre-release performance testing
-Weekly baseline monitoring
-Post-deployment validation
+- CPU Utilization > 70% for 15 minutes
+- Memory Usage > 80% for 15 minutes
+- Database Connections > 80% of pool for 5 minutes
+- Request Queue Length > 100 for 1 minute
 
-11. Rollback Strategy
-11.1 Deployment Versioning
+### 9.3 Cost Optimization
 
-Tag all images with git SHA
-Maintain history of deployments
-Blue-green deployment approach
+- Implement instance right-sizing
+- Auto-scaling based on daily traffic patterns
+- Reserved instances for baseline capacity
+- Spot instances for burst capacity
 
-11.2 Rollback Process
+## 10. Implementation Timeline
 
-Automated rollback on monitoring trigger
-Manual rollback command in CI/CD pipeline
-Database migration rollback procedures
+### 10.1 Phase 1: Core Monitoring (Week 1-2)
 
-11.3 Recovery Testing
+- Set up basic health check endpoints
+- Implement structured logging
+- Configure Prometheus metrics
+- Setup basic dashboards
 
-Regular disaster recovery drills
-Rollback procedure validation
-System recovery timing measurements
+### 10.2 Phase 2: Alerting & Incident Response (Week 3-4)
 
-12. Implementation Timeline
-12.1 Phase 1: Infrastructure Setup (Weeks 1-2)
+- Configure alerting rules
+- Develop incident response runbooks
+- Implement on-call rotation
+- Test incident response procedures
 
-Set up CI/CD pipelines
-Configure container registry
-Establish monitoring foundation
+### 10.3 Phase 3: Performance Optimization (Week 5-6)
 
-12.2 Phase 2: Deployment Automation (Weeks 3-4)
+- Conduct load testing
+- Optimize database queries
+- Implement caching strategies
+- Fine-tune auto-scaling configurations
 
-Automate deployment processes
-Configure scaling policies
-Set up logging infrastructure
+### 10.4 Phase 4: Disaster Recovery (Week 7-8)
 
-12.3 Phase 3: Security & Compliance (Weeks 5-6)
+- Implement backup procedures
+- Test recovery scenarios
+- Document DR processes
+- Conduct DR drill
 
-Implement security best practices
-Set up vulnerability scanning
-Configure backup systems
+## 11. API Server-Specific Reliability Enhancements
 
-12.4 Phase 4: Optimization & Testing (Weeks 7-8)
+### 11.1 Circuit Breaker Implementation
 
-Performance testing
-Load testing
-Recovery testing
+```javascript
+// Circuit breaker for external dependencies
+const circuitBreaker = new CircuitBreaker({
+  name: 'external-api',
+  errorThresholdPercentage: 50,  // Open after 50% failure rate
+  resetTimeout: 30000,           // Try again after 30 seconds
+  timeout: 5000,                 // Timeout requests after 5 seconds
+  onOpen: () => {
+    logger.warn('Circuit breaker opened for external-api');
+    metrics.circuitBreakerState('external-api', 'open');
+  },
+  onClose: () => {
+    logger.info('Circuit breaker closed for external-api');
+    metrics.circuitBreakerState('external-api', 'closed');
+  }
+});
+
+// Example usage
+async function callExternalService(data) {
+  return circuitBreaker.fire(async () => {
+    const response = await axios.post('https://external-api.example.com', data);
+    return response.data;
+  });
+}
+```
+
+### 11.2 Graceful Shutdown
+
+```javascript
+// Graceful shutdown handler
+function setupGracefulShutdown(server) {
+  let shuttingDown = false;
+  
+  // Handle process termination signals
+  ['SIGINT', 'SIGTERM'].forEach(signal => {
+    process.on(signal, async () => {
+      logger.info(`Received ${signal}, starting graceful shutdown`);
+      
+      if (shuttingDown) {
+        logger.warn('Shutdown already in progress');
+        return;
+      }
+      
+      shuttingDown = true;
+      
+      // Set health checks to return 503 status
+      app.get('/health/liveness', (req, res) => {
+        res.status(503).json({ status: 'SHUTTING_DOWN' });
+      });
+      
+      // Stop accepting new connections
+      server.close(async () => {
+        logger.info('HTTP server closed');
+        
+        try {
+          // Close database connections
+          logger.info('Closing database connections');
+          await supabase.pool.end();
+          
+          // Close Redis connections if used
+          logger.info('Closing Redis connections');
+          await redisClient.quit();
+          
+          logger.info('Graceful shutdown completed');
+          process.exit(0);
+        } catch (error) {
+          logger.error('Error during graceful shutdown', { error });
+          process.exit(1);
+        }
+      });
+      
+      // Force shutdown after timeout
+      setTimeout(() => {
+        logger.error('Graceful shutdown timeout, forcing exit');
+        process.exit(1);
+      }, 30000); // 30 seconds timeout
+    });
+  });
+}
+```
+
+### 11.3 Request Timeout Handling
+
+```javascript
+// Request timeout middleware
+const requestTimeout = (timeout = 30000) => (req, res, next) => {
+  // Set timeout for all requests
+  req.setTimeout(timeout, () => {
+    logger.warn('Request timeout', {
+      requestId: req.requestId,
+      path: req.path,
+      method: req.method,
+      timeout
+    });
+    
+    if (!res.headersSent) {
+      res.status(408).json({
+        status: 'error',
+        code: 'request_timeout',
+        message: 'Request processing time exceeded the limit'
+      });
+    }
+  });
+  
+  next();
+};
+```
+
+## 12. Operational Excellence
+
+### 12.1 Post-Incident Review Process
+
+- Blameless post-mortems
+- Root cause analysis
+- Action item tracking
+- Incident knowledge base
+
+### 12.2 Runbook Automation
+
+- Automate common operational tasks
+- Self-healing systems where possible
+- Automated scaling and recovery
+
+### 12.3 SRE Team Structure
+
+- Follow-the-sun on-call rotation
+- Clear escalation paths
+- Cross-training across components
+- Regular operational readiness drills
+
+## 13. Documentation and Knowledge Sharing
+
+### 13.1 System Architecture Documentation
+
+- Maintain up-to-date architecture diagrams
+- Document component interactions
+- Catalog service dependencies
+- Document failover processes
+
+### 13.2 Operational Playbooks
+
+- Incident response procedures
+- Deployment and rollback procedures
+- Database management procedures
+- DR testing procedures
+
+### 13.3 Knowledge Transfer Strategy
+
+- Regular internal tech talks
+- Shared incident review sessions
+- Documentation reviews
+- Shadow on-call rotations
