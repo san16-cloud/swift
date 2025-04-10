@@ -79,22 +79,76 @@ Swift by Lumix Labs helps engineering leaders transform legacy systems from inno
 
 Now Claude is connected to your MCP server and can access your local repositories!
 
-### Available Tools
+## Available Tools
 
 - **Repo Analyzer**: Analyzes repository structure showing language distribution and code quality metrics
+- **Security Analyzer**: Scans for vulnerabilities and security issues in your codebase
 - **UUID Generator**: Generates UUIDs in various formats
 
-### Usage Examples
+## Usage Examples
 
 Ask Claude to analyze a repository:
 ```
 Can you analyze the repository at /my-repo using repo-analyzer with language analysis and code quality metrics?
 ```
 
+Scan for security vulnerabilities:
+```
+Can you scan /my-repo for security vulnerabilities focusing on credential detection and OWASP Top 10?
+```
+
 Generate a UUID:
 ```
 Can you generate a UUID for me?
 ```
+
+## Contributing
+
+We welcome contributions to Swift! Here's how you can help:
+
+### Setting Up Development Environment
+
+1. Fork the repository
+2. Clone your fork:
+   ```bash
+   git clone https://github.com/YOUR-USERNAME/swift.git
+   cd swift
+   ```
+
+3. Test locally:
+   ```bash
+   cd mcp-server
+   ./build.sh
+   ```
+
+### Development Workflow
+
+1. Create a feature branch:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+2. Make your changes and test locally
+3. Submit a pull request with:
+   - Clear description of changes
+   - Any relevant issue numbers
+   - Testing details
+
+### Project Areas Needing Help
+
+- Tool development (new analyzers or utilities)
+- Documentation improvements
+- Testing and quality assurance
+- Performance optimizations
+
+## Troubleshooting
+
+Common issues and solutions:
+
+- **Docker build fails**: Ensure Docker Desktop is running and you have sufficient permissions
+- **Claude can't connect to Swift**: Verify your config.json syntax and restart Claude
+- **Repository not found**: Check the path mappings in your Claude configuration
+- **Permission denied errors**: Verify Docker has access to the mapped directories
 
 ## Documentation
 
