@@ -254,4 +254,9 @@ node_modules/
 npm-debug.log
 yarn-error.log
 
+.DS_Store
+
+# API Server logs
+logs/
+
 # End of https://www.toptal.com/developers/gitignore/api/python,java,nextjs,vue,vuejs,dotenv

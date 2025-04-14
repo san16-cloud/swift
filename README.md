@@ -1,7 +1,12 @@
 # Swift by Lumix Labs
 [![smithery badge](https://smithery.ai/badge/@lumix-labs/swift)](https://smithery.ai/server/@lumix-labs/swift)
 
-Ship Legacy Code 5x Faster Without Risky Rewrites
+> Ship legacy code 5x faster. No rewrites. No regressions.  
+> Built by ex-Meta, OVO, and Paytm engineers.  
+> Used by growing teams to scale deployment velocity and slash production incidents.
+
+Current Version: [v0.x] – Early Access  
+Try it → [https://lumix-labs.github.io/swift](https://lumix-labs.github.io/swift)
 
 ## About
 
@@ -36,7 +41,7 @@ Swift by Lumix Labs helps engineering leaders transform legacy systems from inno
    ```bash
    ./build.sh
    ```
-   This will create a Docker image named `swift-mcp-server` that you can see in Docker Desktop.
+   This will create a Docker image named `lumix-labs/mcp-server` that you can see in Docker Desktop.
 
 ### Connecting Claude to Swift
 
@@ -59,7 +64,7 @@ Swift by Lumix Labs helps engineering leaders transform legacy systems from inno
          "/path/to/your/repo2:/repo2",
          "-w",
          "/",
-         "swift-mcp-server"
+         "lumixlabs/mcp-server"
        ]
      }
     }
@@ -154,19 +159,34 @@ Common issues and solutions:
 
 Visit our [GitHub Pages site](https://lumix-labs.github.io/swift/) for complete documentation and guides.
 
-## GitHub Pages Website
+## 🚀 Get Cracked at Lumix
 
-This repository includes a GitHub Pages website in the `/docs` directory. The site is automatically published when changes are pushed to the main branch.
+Want to work on real problems, ship fast, and grow like you're at Meta—without the red tape?
 
-### Website Development
+We don’t do resumes. We do velocity.  
+Join Swift as a contributor and become a cracked engineer.
 
-To run the website locally:
+### What You Get
+- Contribute to real production systems
+- Mentorship from Ashwani (ex-Meta, Ovo)
+- Ship into prod from day 1
+- Get paid for high-impact work
+- Potential full-time roles
 
-1. Navigate to the `docs` directory
-2. Install Ruby and Bundler if you don't have them
-3. Run `bundle install` to install dependencies
-4. Run `bundle exec jekyll serve` to start a local server
-5. Visit `http://localhost:4000` in your browser
+### How to Start
+1. Visit the [issues page](https://github.com/lumix-labs/swift/issues)
+2. Pick one tagged `good-first-crack` or suggest your own
+3. Open a PR or comment on the issue
+4. If it ships, we talk 🚀
+
+🧠 Read more: [https://lumix-labs.github.io/swift/cracked](https://lumix-labs.github.io/swift/cracked)
+
+## 🛠 Contributors
+
+This project is made better by every contributor.  
+Want your name here? [Get cracked](https://lumix-labs.github.io/swift/cracked) and make your first PR.
+
+- 🧑‍💻 Ashwani Karoriwal - Founder @ Lumix Labs
 
 ## License
 
