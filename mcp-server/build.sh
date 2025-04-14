@@ -5,7 +5,7 @@ rm -rf build
 # Check if Docker is available
 if command -v docker &> /dev/null; then
     echo "Building Docker image..."
-    docker build -t swift-mcp-server .
+    docker build -t lumixlabs/mcp-server .
     echo "Docker image built successfully!"
 else
     echo "Docker not found - skipping Docker image build."
