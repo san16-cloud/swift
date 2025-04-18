@@ -8,6 +8,7 @@ Swift is an AI assistant for CxOs and engineering leaders dealing with legacy sy
 - `/api-server` - API server for backend operations
 - `/mcp-server` - MCP server for AI model handling
 - `/core` - Shared core libraries
+- `/scripts` - Utility scripts for deployment and server setup
 
 ## Development
 
@@ -38,14 +39,16 @@ make dev
 
 ## Docker Deployment
 
-To build and run with Docker:
+### Local Development
+
+To build and run with Docker locally:
 
 ```bash
 # Build and start all services
 docker-compose up -d
 
 # Or build specific services
-docker-compose up -d web api-server mcp-server
+docker-compose up -d web
 ```
 
 ## Project Modules
