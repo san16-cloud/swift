@@ -7,6 +7,12 @@ const nextConfig: NextConfig = {
   },
   // Set the port to 3050
   experimental: {},
+  // Configure output for static exports (required for Cloudflare Pages)
+  output: 'export',
+  // Disable image optimization since Cloudflare Pages doesn't support it
+  images: {
+    unoptimized: true,
+  },
 };
 
 export default nextConfig;

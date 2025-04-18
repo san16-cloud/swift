@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 
 export default function Home() {
   return (
@@ -9,7 +8,8 @@ export default function Home() {
           <Image 
             src="/swift-logo.svg" 
             alt="Swift Logo" 
-            fill 
+            width={80}
+            height={80}
             priority
             className="dark:invert"
           />

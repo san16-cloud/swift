@@ -5,7 +5,7 @@ import type { NextRequest } from 'next/server';
  * Health check endpoint for the web application
  * Used by Docker health checks to verify the service is running
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   return NextResponse.json(
     { 
       status: 'ok',
