@@ -1,0 +1,72 @@
+{
+  "name": "swift",
+  "build": {
+    "context": "..",
+    "dockerfile": "Dockerfile",
+    "args": {
+      "VARIANT": "ubuntu-22.04"
+    }
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1.6.0": {},
+    "ghcr.io/devcontainers/features/python:1.7.0": {
+      "version": "3.11"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    },
+    "ghcr.io/devcontainers/features/git:1": {
+      "version": "latest",
+      "ppa": false
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "initializeCommand": "echo 'Container initialization starting...' && docker system prune -f",
+  "onCreateCommand": "echo 'Container creation starting...'",
+  "postCreateCommand": "bash .devcontainer/post_create.sh",
+  "postStartCommand": "git config --global core.editor 'code --wait'",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode", 
+        "github.vscode-github-actions",
+        "redhat.vscode-yaml",
+        "ms-azuretools.vscode-docker",
+        "eamodio.gitlens",
+        "streetsidesoftware.code-spell-checker",
+        "bradlc.vscode-tailwindcss"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "terminal.integrated.profiles.linux": {
+          "bash": {
+            "path": "/bin/bash"
+          }
+        },
+        "files.watcherExclude": {
+          "**/target": true,
+          "**/node_modules": true,
+          "**/.venv": true,
+          "**/__pycache__": true,
+          "**/.next": true
+        },
+        "python.defaultInterpreterPath": "/home/vscode/venvs/main/bin/python",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": true
+        }
+      }
+    }
+  },
+  "remoteUser": "vscode",
+  "runArgs": [
+    "--cap-add=SYS_PTRACE",
+    "--security-opt=seccomp=unconfined"
+  ],
+  "appPort": [
+    "6000:6000",   // Web
+  ]
+}

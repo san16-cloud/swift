@@ -1,0 +1,43 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Web: Next.js",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "outputCapture": "std",
+      "serverReadyAction": {
+        "pattern": "- Local:.+(https?://\\S+)",
+        "uriFormat": "%s",
+        "action": "openExternally"
+      }
+    },
+    {
+      "name": "API Server",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/api-server",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "outputCapture": "std"
+    },
+    {
+      "name": "MCP Server",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/mcp-server",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "outputCapture": "std"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full Stack",
+      "configurations": ["Web: Next.js", "API Server", "MCP Server"]
+    }
+  ]
+}

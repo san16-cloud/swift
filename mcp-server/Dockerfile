@@ -3,16 +3,19 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Install basic Alpine packages needed for dependency processing
-RUN apk add --no-cache python3 bash grep
+RUN apk add --no-cache python3 py3-pip bash grep
 
 # Create a virtual environment for Python dependencies
 ENV VIRTUAL_ENV=/app/venv
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
+# Create logs directory
+RUN mkdir -p /logs && chmod 777 /logs
+
 # Copy package files and install Node dependencies
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 # Copy source code and configuration
 COPY tsconfig.json ./
@@ -39,5 +42,11 @@ RUN find ./src -name "metadata.yaml" -o -name "metadata.yml" | xargs -I{} sh -c 
 # Build the TypeScript code
 RUN npm run build
 
+# Expose the service port
+EXPOSE 5000
+
+# Volume for logs
+VOLUME ["/logs"]
+
 # Command to run the server
-CMD ["node", "/app/build/index.js"]
+CMD ["node", "build/index.js"]

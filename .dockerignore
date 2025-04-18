@@ -1,0 +1,46 @@
+# Version control
+.git
+.gitignore
+.github
+
+# Dependencies
+node_modules
+**/node_modules
+
+# Build artifacts
+**/build
+**/dist
+**/.next
+**/out
+
+# Development files
+.devcontainer
+.vscode
+.idea
+
+# Logs
+logs
+*.log
+
+# Environment variables
+.env*
+!.env.example
+
+# Documentation
+README.md
+**/README.md
+docs
+PRDs
+
+# Tests
+**/__tests__
+**/test
+**/tests
+**/*.test.*
+**/*.spec.*
+
+# Miscellaneous
+.DS_Store
+Thumbs.db
+**/.DS_Store
+**/Thumbs.db
