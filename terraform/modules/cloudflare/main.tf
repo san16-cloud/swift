@@ -1,3 +1,4 @@
+# Explicit provider configuration for this module
 terraform {
   required_providers {
     cloudflare = {
@@ -6,6 +7,8 @@ terraform {
     }
   }
 }
+
+# Cloudflare DNS records and settings
 
 # DNS Records for Web and API services
 resource "cloudflare_record" "web" {
@@ -46,7 +49,7 @@ resource "cloudflare_page_rule" "https_always" {
   }
 }
 
-# SSL settings - Ensure SSL is terminated at Cloudflare (removed problematic settings)
+# SSL settings - Set to "flexible" since termination happens at Cloudflare
 resource "cloudflare_zone_settings_override" "ssl_settings" {
   zone_id = var.cloudflare_zone_id
 
@@ -56,6 +59,5 @@ resource "cloudflare_zone_settings_override" "ssl_settings" {
     min_tls_version          = "1.2"
     automatic_https_rewrites = "on"
     always_use_https         = "on"
-    # Removed both origin_error_page_pass_thru and sort_query_string_for_cache settings
   }
 }

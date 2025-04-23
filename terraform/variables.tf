@@ -1,5 +1,5 @@
 variable "project_name" {
-  description = "Name of the project"
+  description = "Swift"
   type        = string
   default     = "swift"
 }
@@ -50,45 +50,42 @@ variable "cloudflare_zone_id" {
   description = "Cloudflare zone ID"
   type        = string
   # No default - will be fetched from Terraform Cloud
-  
-  validation {
-    condition     = length(var.cloudflare_zone_id) > 0
-    error_message = "Cloudflare zone ID must be provided. It should be set in Terraform Cloud variables."
-  }
-}
-
-variable "container_image_api" {
-  description = "Container image for API service"
-  type        = string
-  # No default - will be fetched from Terraform Cloud
-  
-  validation {
-    condition     = length(var.container_image_api) > 0
-    error_message = "Container image for API service must be provided. It should be set in Terraform Cloud variables."
-  }
-}
-
-variable "container_image_web" {
-  description = "Container image for Web service"
-  type        = string
-  # No default - will be fetched from Terraform Cloud
-  
-  validation {
-    condition     = length(var.container_image_web) > 0
-    error_message = "Container image for Web service must be provided. It should be set in Terraform Cloud variables."
-  }
 }
 
 variable "key_pair_name" {
   description = "Name of the SSH key pair to use with the EC2 instance"
   type        = string
-  default     = ""
+  default     = "swift-key"
 }
 
 variable "domain_name" {
   description = "Domain name for the application"
   type        = string
-  default     = "swift-app.com"
+  default     = "nxtra.co"
 }
 
-# Removed enable_backup variable as backups are not required
+variable "container_image_api" {
+  description = "ECR image URI for the API container"
+  type        = string
+  default     = "618206799106.dkr.ecr.ap-south-1.amazonaws.com/lumixlabs/swift-api:latest"
+}
+
+variable "container_image_web" {
+  description = "ECR image URI for the Web container"
+  type        = string
+  default     = "618206799106.dkr.ecr.ap-south-1.amazonaws.com/lumixlabs/swift-web:latest"
+}
+
+variable "ssh_private_key_path" {
+  description = "Path to the SSH private key file for remote provisioning"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "ssh_private_key_content" {
+  description = "Content of the SSH private key for remote provisioning"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

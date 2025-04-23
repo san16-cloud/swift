@@ -35,16 +35,19 @@ resource "aws_instance" "swift_instance" {
 
   user_data = templatefile("${path.module}/user_data.sh.tpl", {
     aws_region = var.aws_region,
-    container_image_api = var.container_image_api,
-    container_image_web = var.container_image_web,
     path = {
       module = path.module
     }
   })
 
-  # Add lifecycle policy for safer deployments
+  # Updated lifecycle policy to prevent recreation due to AMI changes
   lifecycle {
     create_before_destroy = true
+    ignore_changes = [
+      ami,              # Ignore changes to the AMI
+      user_data,        # Ignore changes to user data
+      ebs_optimized     # Ignore changes to ebs_optimized
+    ]
   }
 
   tags = {
@@ -64,5 +67,3 @@ resource "aws_eip" "swift_eip" {
     Project     = var.project_name
   }
 }
-
-# CloudWatch resources removed as requested

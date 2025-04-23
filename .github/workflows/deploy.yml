@@ -1,0 +1,112 @@
+name: Deploy Application
+
+on:
+  workflow_call:
+    inputs:
+      infrastructureParams:
+        required: true
+        type: string
+        description: "JSON string containing infrastructure parameters"
+      modulesToDeploy:
+        required: true
+        type: string
+        description: "Comma-separated list of modules to deploy"
+    secrets:
+      AWS_REGION:
+        required: true
+      AWS_ACCOUNT_ID:
+        required: true
+      EC2_SSH_KEY:
+        required: false
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      CONTAINER_IMAGE_API:
+        required: false
+      CONTAINER_IMAGE_WEB:
+        required: false
+    outputs:
+      deployment_status:
+        description: "Status of the deployment"
+        value: ${{ jobs.deploy.outputs.status }}
+
+jobs:
+  deploy:
+    name: Deploy Application
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      status: ${{ steps.deployment-result.outputs.status }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+        with:
+          mask-password: true
+
+      # === Parse Parameters ===
+      - name: Parse parameters
+        id: parse-params
+        uses: ./.github/workflows/deploy/parse-params
+        with:
+          infrastructureParams: ${{ inputs.infrastructureParams }}
+          modulesToDeploy: ${{ inputs.modulesToDeploy }}
+
+      # === Create Deployment Files ===
+      - name: Create docker-compose file
+        uses: ./.github/workflows/deploy/create-docker-compose
+        with:
+          registry: ${{ steps.login-ecr.outputs.registry }}
+          modules_to_deploy: ${{ steps.parse-params.outputs.modules_to_deploy }}
+          container_image_api: ${{ secrets.CONTAINER_IMAGE_API }}
+          container_image_web: ${{ secrets.CONTAINER_IMAGE_WEB }}
+
+      - name: Create deployment script
+        uses: ./.github/workflows/deploy/create-deployment-script
+
+      - name: Encode files for secure transfer
+        id: encode-files
+        run: |
+          DOCKER_COMPOSE_BASE64=$(base64 -w 0 deploy/docker-compose.yml)
+          DEPLOYMENT_SCRIPT_BASE64=$(base64 -w 0 deploy/run-deployment.sh)
+
+          echo "docker_compose_base64=${DOCKER_COMPOSE_BASE64}" >> $GITHUB_OUTPUT
+          echo "deployment_script_base64=${DEPLOYMENT_SCRIPT_BASE64}" >> $GITHUB_OUTPUT
+
+      # === Deploy to Instance ===
+      - name: Deploy using SSM
+        id: deploy-to-instance
+        uses: ./.github/workflows/deploy/deploy-via-ssm
+        with:
+          instance_id: ${{ steps.parse-params.outputs.instance_id }}
+          instance_ip: ${{ steps.parse-params.outputs.instance_ip }}
+          docker_compose_base64: ${{ steps.encode-files.outputs.docker_compose_base64 }}
+          deployment_script_base64: ${{ steps.encode-files.outputs.deployment_script_base64 }}
+          registry: ${{ steps.login-ecr.outputs.registry }}
+          aws_region: ${{ secrets.AWS_REGION }}
+          container_image_api: ${{ secrets.CONTAINER_IMAGE_API }}
+          container_image_web: ${{ secrets.CONTAINER_IMAGE_WEB }}
+
+      - name: Set deployment result
+        id: deployment-result
+        run: |
+          if [ "${{ steps.deploy-to-instance.outcome }}" == "success" ]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "Deployment completed successfully"
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "Deployment failed"
+          fi

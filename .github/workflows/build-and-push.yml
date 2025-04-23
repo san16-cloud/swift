@@ -1,42 +1,31 @@
-name: Build and Push Docker Images
+name: Swift CI/CD Pipeline
 
 on:
   push:
-    branches: [master, main]
+    branches: [master, main, ak] # do not remove ak
     paths:
       - "api/**"
       - "web/**"
+      - "terraform/**"
       - ".github/workflows/**"
   workflow_dispatch:
-    inputs:
-      forceBuildApi:
-        description: "Force build of API image"
-        required: false
-        default: "false"
-        type: choice
-        options:
-          - "true"
-          - "false"
-      forceBuildWeb:
-        description: "Force build of Web image"
-        required: false
-        default: "false"
-        type: choice
-        options:
-          - "true"
-          - "false"
 
 jobs:
   check-changes:
     name: Check Modified Modules
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       api_changed: ${{ steps.filter.outputs.api }}
       web_changed: ${{ steps.filter.outputs.web }}
+      terraform_changed: ${{ steps.filter.outputs.terraform }}
+      modules_to_deploy: ${{ steps.set-modules.outputs.modules_to_deploy }}
+      should_deploy_infra: ${{ steps.check-deploy.outputs.should_deploy_infra }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 50
 
@@ -49,35 +38,127 @@ jobs:
               - 'api/**'
             web:
               - 'web/**'
+            terraform:
+              - 'terraform/**'
+
+      - name: Determine modules to deploy
+        id: set-modules
+        run: |
+          MODULES=()
+          echo "Change detection results:"
+          echo "API changes: ${{ steps.filter.outputs.api }}"
+          echo "Web changes: ${{ steps.filter.outputs.web }}"
+          echo "Terraform changes: ${{ steps.filter.outputs.terraform }}"
+
+          # Add API module if it has changes
+          if [[ "${{ steps.filter.outputs.api }}" == "true" ]]; then
+            MODULES+=("api")
+            echo "Adding API module for deployment due to changes"
+          fi
+
+          # Add Web module if it has changes
+          if [[ "${{ steps.filter.outputs.web }}" == "true" ]]; then
+            MODULES+=("web")
+            echo "Adding Web module for deployment due to changes"
+          fi
+
+          # Always include API if nothing else is selected
+          if [ ${#MODULES[@]} -eq 0 ]; then
+            MODULES+=("api")
+            echo "No modules detected for changes, defaulting to API module"
+          fi
+
+          # Join array with commas
+          MODULES_STR=$(IFS=,; echo "${MODULES[*]}")
+          echo "modules_to_deploy=${MODULES_STR}" >> $GITHUB_OUTPUT
+          echo "Modules to deploy: ${MODULES_STR}"
+
+      - name: Check deployment conditions
+        id: check-deploy
+        run: |
+          # Check if we should deploy infrastructure
+          if [[ "${{ steps.filter.outputs.terraform }}" == "true" ]]; then
+            echo "should_deploy_infra=true" >> $GITHUB_OUTPUT
+            echo "Infrastructure changes detected, will deploy infra"
+          else
+            echo "should_deploy_infra=false" >> $GITHUB_OUTPUT
+            echo "No infrastructure changes detected"
+          fi
 
   build-api:
     name: Build API Image
     needs: check-changes
-    if: |
-      (needs.check-changes.outputs.api_changed == 'true') ||
-      (github.event.inputs.forceBuildApi == 'true')
+    if: needs.check-changes.outputs.api_changed == 'true'
     uses: ./.github/workflows/build-module.yml
     with:
       module: api
-      repository: swift-api
+      repository: lumixlabs/swift-api
     secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
   build-web:
-    name: Build Web Image
+    name: Build WEB Image
     needs: check-changes
-    if: |
-      (needs.check-changes.outputs.web_changed == 'true') ||
-      (github.event.inputs.forceBuildWeb == 'true')
+    if: needs.check-changes.outputs.web_changed == 'true'
     uses: ./.github/workflows/build-module.yml
     with:
       module: web
-      repository: swift-web
+      repository: lumixlabs/swift-web
     secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  terraform:
+    name: Terraform Operations
+    needs: [check-changes, build-api, build-web]
+    if: |
+      needs.check-changes.outputs.should_deploy_infra == 'true' && 
+      (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
+      (needs.build-web.result == 'success' || needs.build-web.result == 'skipped')
+    uses: ./.github/workflows/terraform-workflow.yml
+    with:
+      action: plan-apply
+    secrets:
+      TERRAFORM_API_TOKEN: ${{ secrets.TF_AUTH }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+  deploy:
+    name: Deploy Application
+    needs: [check-changes, build-api, build-web, terraform]
+    # Ensure deploy only runs if previous steps succeeded or were skipped
+    if: |
+      (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
+      (needs.build-web.result == 'success' || needs.build-web.result == 'skipped') &&
+      (needs.terraform.result == 'success' || needs.terraform.result == 'skipped')
+    uses: ./.github/workflows/deploy.yml
+    with:
+      infrastructureParams: ${{ needs.terraform.outputs.infrastructure_params || '{}' }}
+      modulesToDeploy: ${{ needs.check-changes.outputs.modules_to_deploy }}
+    secrets:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      CONTAINER_IMAGE_API: ${{ secrets.CONTAINER_IMAGE_API }}
+      CONTAINER_IMAGE_WEB: ${{ secrets.CONTAINER_IMAGE_WEB }}
+
+  verify-deployment:
+    name: Verify Deployment Status
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check deployment status
+        run: |
+          if [ "${{ needs.deploy.outputs.deployment_status }}" == "failure" ]; then
+            echo "Deployment failed with status: ${{ needs.deploy.outputs.deployment_status }}"
+            echo "Please check the deployment logs for more details"
+            exit 1
+          else
+            echo "Deployment completed successfully with status: ${{ needs.deploy.outputs.deployment_status }}"
+          fi

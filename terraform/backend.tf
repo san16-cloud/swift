@@ -8,11 +8,14 @@ terraform {
       source  = "cloudflare/cloudflare"
       version = "~> 3.35"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.4"
+    }
   }
 
   backend "remote" {
     organization = "lumixlabs"
-
     workspaces {
       name = "swift"
     }

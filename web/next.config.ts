@@ -3,6 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
+  productionBrowserSourceMaps: false,
   images: {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 60,
@@ -10,6 +11,9 @@ const nextConfig = {
   experimental: {
     optimizeCss: true,
     optimizeServerReact: true,
+  },
+  webpack: (config: any) => {
+    return config;
   },
 };
 

@@ -1,0 +1,151 @@
+name: Terraform Workflow
+
+on:
+  workflow_call:
+    inputs:
+      action:
+        required: true
+        type: string
+        description: "Terraform action to perform (plan-apply or plan-only)"
+        default: "plan-only"
+    outputs:
+      infrastructure_params:
+        description: "Infrastructure parameters as JSON"
+        value: ${{ jobs.terraform.outputs.infrastructure_params }}
+    secrets:
+      TERRAFORM_API_TOKEN:
+        required: true
+      SSH_PRIVATE_KEY:
+        required: false
+
+jobs:
+  terraform:
+    name: Terraform Operations
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ./terraform
+    outputs:
+      infrastructure_params: ${{ steps.extract-params.outputs.infrastructure_params }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
+          cli_config_credentials_token: ${{ secrets.TERRAFORM_API_TOKEN }}
+          terraform_wrapper: false
+
+      - name: Setup SSH key
+        run: |
+          if [ -n "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
+            echo "TF_VAR_ssh_private_key_content<<EOF" >> $GITHUB_ENV
+            echo "${{ secrets.SSH_PRIVATE_KEY }}" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+          fi
+
+      - name: Terraform Init
+        id: init
+        env:
+          TF_AUTH: ${{ secrets.TERRAFORM_API_TOKEN }}
+          TF_LOG: INFO
+        run: |
+          echo "Running terraform init..."
+          terraform init -input=false -upgrade
+          if [ $? -ne 0 ]; then
+            echo "::error::Terraform initialization failed. Please check Terraform configuration."
+            exit 1
+          fi
+          echo "Terraform initialization successful."
+
+      - name: Terraform Validate
+        id: validate
+        run: |
+          echo "Validating Terraform configuration..."
+          terraform validate
+          if [ $? -ne 0 ]; then
+            echo "::error::Terraform validation failed. Please fix the configuration errors."
+            exit 1
+          fi
+          echo "Terraform validation successful."
+
+      - name: Terraform Plan
+        id: plan
+        env:
+          TF_AUTH: ${{ secrets.TERRAFORM_API_TOKEN }}
+        run: |
+          echo "Running terraform plan..."
+          # Don't try to save the plan file since remote backend doesn't support it
+          terraform plan -input=false -no-color
+          PLAN_EXIT_CODE=$?
+
+          if [ $PLAN_EXIT_CODE -ne 0 ]; then
+            echo "::error::Terraform plan failed. Please check the error messages above."
+            exit 1
+          fi
+
+          echo "Terraform plan completed successfully."
+
+      # Combined Apply step - will only execute if action is plan-apply
+      - name: Terraform Apply
+        if: inputs.action == 'plan-apply'
+        id: apply
+        env:
+          TF_AUTH: ${{ secrets.TERRAFORM_API_TOKEN }}
+        run: |
+          echo "Running terraform apply..."
+          terraform apply -auto-approve -input=false
+          if [ $? -ne 0 ]; then
+            echo "::error::Terraform apply failed. Infrastructure changes were not applied."
+            exit 1
+          fi
+          echo "Terraform apply successful. Infrastructure has been updated."
+
+      # Extract parameters - this now handles both plan-apply and plan-only modes
+      - name: Extract Infrastructure Parameters
+        id: extract-params
+        run: |
+          echo "=== Extracting infrastructure parameters ==="
+
+          # Set default parameters for plan-only mode
+          if [[ "${{ inputs.action }}" == "plan-only" ]]; then
+            # Create a default JSON output when in plan-only mode
+            DEFAULT_PARAMS="{\"instance_ip\":\"plan_only_mode\",\"instance_id\":\"plan_only_mode\"}"
+            echo "infrastructure_params=$DEFAULT_PARAMS" >> $GITHUB_OUTPUT
+            echo "In plan-only mode - using placeholder infrastructure parameters"
+            exit 0
+          fi
+
+          # List available outputs
+          echo "Available Terraform outputs:"
+          terraform output || { echo "::warning::Failed to get terraform outputs"; }
+
+          # Extract values with error handling
+          echo "Extracting instance_public_ip..."
+          INSTANCE_IP=$(terraform output -raw instance_public_ip 2>/dev/null || echo "")
+          echo "Extracted instance_public_ip: ${INSTANCE_IP}"
+
+          echo "Extracting instance_id..."
+          INSTANCE_ID=$(terraform output -raw instance_id 2>/dev/null || echo "")
+          echo "Extracted instance_id: ${INSTANCE_ID}"
+
+          # Validate extracted values
+          if [ -z "$INSTANCE_IP" ] || [ "$INSTANCE_IP" == "null" ]; then
+            echo "::error::Instance IP is empty or null. Terraform did not properly output instance information."
+            exit 1
+          fi
+
+          if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" == "null" ]; then
+            echo "::error::Instance ID is empty or null. Terraform did not properly output instance information."
+            exit 1
+          fi
+
+          # Create JSON output with validated parameters
+          INFRASTRUCTURE_PARAMS="{\"instance_ip\":\"$INSTANCE_IP\",\"instance_id\":\"$INSTANCE_ID\"}"
+          echo "infrastructure_params=$INFRASTRUCTURE_PARAMS" >> $GITHUB_OUTPUT
+          echo "Successfully extracted infrastructure parameters: $INFRASTRUCTURE_PARAMS"

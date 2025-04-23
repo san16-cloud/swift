@@ -1,0 +1,12 @@
+name: 'Create Deployment Script'
+description: 'Generates the deployment shell script for EC2'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Create deployment script
+      shell: bash
+      run: |
+        mkdir -p deploy
+        cp ${{ github.action_path }}/../templates/run-deployment.sh deploy/run-deployment.sh
+        chmod +x deploy/run-deployment.sh
