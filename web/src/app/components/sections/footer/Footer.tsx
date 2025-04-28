@@ -1,3 +1,6 @@
+"use client";
+import React from "react";
+
 export function Footer() {
   return (
     <footer className="w-full py-4 px-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-black">
@@ -7,25 +10,24 @@ export function Footer() {
           <div className="flex flex-col sm:flex-row justify-between items-center text-sm text-gray-600 dark:text-gray-400">
             <p>
               By messaging Swift, you agree to our{' '}
-              <a 
-                href="#" 
+              <a
+                href="#"
                 className="underline hover:text-black dark:hover:text-white transition-colors"
               >
                 Terms
               </a>{' '}
               and have read our{' '}
-              <a 
-                href="#" 
+              <a
+                href="#"
                 className="underline hover:text-black dark:hover:text-white transition-colors"
               >
                 Privacy Policy
               </a>
             </p>
-            
             <div className="mt-2 sm:mt-0 flex items-center space-x-3">
-              <a 
-                href="https://x.com/ashwani_48" 
-                target="_blank" 
+              <a
+                href="https://x.com/ashwani_48"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center hover:text-black dark:hover:text-white transition-colors"
                 aria-label="Follow on Twitter"
