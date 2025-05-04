@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useRef, useEffect } from 'react';
-import { useChat } from '../../../context/ChatContext';
-import { useTheme } from '../../../context/ThemeContext';
-import { ChatMessage } from './ChatMessage';
-import { HeroSection } from '../hero/HeroSection';
-import { SuggestedPrompts } from './SuggestedPrompts';
+import React, { useRef, useEffect } from "react";
+import { useChat } from "../../../context/ChatContext";
+import { useTheme } from "../../../context/ThemeContext";
+import { ChatMessage } from "./ChatMessage";
+import { EmptyChatView } from "./EmptyChatView";
 
 export function ChatMessageList() {
   const { messages, addMessage } = useChat();
@@ -26,27 +25,20 @@ export function ChatMessageList() {
   // Handle selecting a suggested prompt
   const handleSelectPrompt = (prompt: string) => {
     addMessage({
-      role: 'user' as const,
-      content: prompt
+      role: "user" as const,
+      content: prompt,
     });
   };
 
   return (
     <div className="flex-1 p-4 overflow-hidden h-full w-full">
       {messages.length === 0 ? (
-        <div className="h-full flex flex-col">
-          <div className="flex-1">
-            <HeroSection />
-          </div>
-          <div className="mt-auto">
-            <SuggestedPrompts onSelectPrompt={handleSelectPrompt} />
-          </div>
-        </div>
+        <EmptyChatView onSelectPrompt={handleSelectPrompt} />
       ) : (
-        <div 
+        <div
           ref={scrollContainerRef}
           className={`max-w-4xl mx-auto h-full overflow-y-auto scrollbar-${resolvedTheme}`}
-          style={{ overflowX: 'hidden' }}
+          style={{ overflowX: "hidden" }}
         >
           {messages.map((message, index) => (
             <div key={index} className="py-2">
