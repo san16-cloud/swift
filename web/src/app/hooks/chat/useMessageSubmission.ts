@@ -3,18 +3,33 @@
 import { useState, useRef, useCallback, FormEvent } from "react";
 import { LLMModel, Repository } from "../../lib/types/entities";
 import { GeminiService } from "../../lib/services/gemini-service";
+import { ClaudeService } from "../../lib/services/claude-service";
+import { OpenAIService } from "../../lib/services/openai-service";
+import { SenderType, SENDERS } from "../../lib/types/message";
+import {
+  RepositoryStatus,
+  getRepositoryStatus,
+  isRepositoryReadyForChat,
+} from "../../lib/services/repo-download-service";
+import { createAdvisorSender, getModelById } from "../../lib/services/entity-service";
 
-// Define the DownloadedRepository interface to replace any
+// Define the DownloadedRepository interface
 interface DownloadedRepository extends Repository {
   localPath?: string;
   downloadDate?: number;
   fileCount?: number;
   size?: number;
   readmeContent?: string;
+  repoTree?: string;
+  status?: RepositoryStatus;
 }
 
 interface UseMessageSubmissionProps {
-  addMessage: (message: { role: "user" | "assistant"; content: string }) => void;
+  addMessage: (message: {
+    role: "user" | "assistant" | "assistant-informational" | "model-response";
+    content: string;
+    sender?: any; // Added to support sender property
+  }) => void;
   setIsLoading: (loading: boolean) => void;
   currentModel: LLMModel | null;
   currentRepo: Repository | null;
@@ -51,19 +66,51 @@ export function useMessageSubmission({
       // Check if model is selected
       if (!currentModel) {
         addMessage({
-          role: "assistant" as const,
+          role: "assistant-informational" as const,
           content: "Please select a model from the Models dropdown first.",
         });
         return;
       }
 
-      // If repository is selected but not downloaded/ready
-      if (currentRepo && !repositoryReady) {
+      // Check if API key is provided
+      if (!currentModel.apiKey) {
+        // Look up full model details
+        const modelDetails = getModelById(currentModel.id);
+        const modelName = modelDetails?.name || currentModel.name;
+
         addMessage({
-          role: "assistant" as const,
-          content: "Please wait for the repository to be downloaded before sending your question.",
+          role: "assistant-informational" as const,
+          content: `Please add your API key for ${modelName} in the Models dropdown before using it.`,
         });
         return;
+      }
+
+      // Check repository status
+      if (currentRepo) {
+        const repoStatus = getRepositoryStatus(currentRepo.id);
+        if (!isRepositoryReadyForChat(repoStatus)) {
+          let statusMessage = "It's not ready yet.";
+
+          switch (repoStatus) {
+            case RepositoryStatus.DOWNLOADING:
+              statusMessage = "It's currently being downloaded.";
+              break;
+            case RepositoryStatus.QUEUED:
+              statusMessage = "It's in the download queue.";
+              break;
+            case RepositoryStatus.INGESTING:
+              statusMessage = "It's currently being processed.";
+              break;
+            default:
+              statusMessage = "Please download it first.";
+          }
+
+          addMessage({
+            role: "assistant-informational" as const,
+            content: `Repository ${currentRepo.name} is not ready for chat. ${statusMessage}`,
+          });
+          return;
+        }
       }
 
       const userMessageContent = trimmedMessage;
@@ -101,31 +148,104 @@ export function useMessageSubmission({
       try {
         let response = "";
 
-        // Use appropriate service based on selected model
-        if (currentModel.provider === "gemini") {
-          const geminiService = new GeminiService(currentModel.apiKey);
+        // Create a customized advisor sender using the current model details
+        const advisorSender = createAdvisorSender(currentModel);
 
-          if (currentRepo && downloadedRepo && downloadedRepo.readmeContent) {
-            // Use repository context when available
-            response = await geminiService.sendMessage(
-              userMessageContent,
-              currentRepo.name,
-              currentRepo.url,
-              downloadedRepo.readmeContent,
-            );
-          } else {
-            // No repository context
-            response = await geminiService.sendMessage(userMessageContent);
+        // Set personality on the model service if applicable
+        const personality = currentModel.personality;
+
+        // Prepare repository context data
+        const contextData =
+          currentRepo && downloadedRepo
+            ? {
+                repoName: currentRepo.name,
+                repoUrl: currentRepo.url,
+                readmeContent: downloadedRepo.readmeContent || "",
+                repoTree: downloadedRepo.repoTree || "",
+                localPath: downloadedRepo.localPath || "",
+              }
+            : undefined;
+
+        // Use appropriate service based on selected model provider
+        switch (currentModel.provider) {
+          case "gemini": {
+            const geminiService = new GeminiService(currentModel.apiKey, personality);
+
+            if (contextData) {
+              // Use repository context when available with tree data
+              response = await geminiService.sendMessage(
+                userMessageContent,
+                contextData.repoName,
+                contextData.repoUrl,
+                contextData.readmeContent,
+                contextData.repoTree,
+                contextData.localPath,
+              );
+            } else {
+              // No repository context
+              response = await geminiService.sendMessage(userMessageContent);
+            }
+            break;
           }
-        } else {
-          // Fallback for other providers (e.g., Anthropic)
-          response = `Using ${currentModel.name} (${currentModel.provider}):\n\nThis model provider is not yet implemented.`;
+
+          case "anthropic": {
+            const claudeService = new ClaudeService(
+              currentModel.apiKey,
+              currentModel.modelId || "claude-3-haiku-20240307",
+              personality,
+            );
+
+            if (contextData) {
+              // Use repository context when available with tree data
+              response = await claudeService.sendMessage(
+                userMessageContent,
+                contextData.repoName,
+                contextData.repoUrl,
+                contextData.readmeContent,
+                contextData.repoTree,
+                contextData.localPath,
+              );
+            } else {
+              // No repository context
+              response = await claudeService.sendMessage(userMessageContent);
+            }
+            break;
+          }
+
+          case "openai": {
+            const openaiService = new OpenAIService(
+              currentModel.apiKey,
+              currentModel.modelId || "gpt-3.5-turbo",
+              personality,
+            );
+
+            if (contextData) {
+              // Use repository context when available with tree data
+              response = await openaiService.sendMessage(
+                userMessageContent,
+                contextData.repoName,
+                contextData.repoUrl,
+                contextData.readmeContent,
+                contextData.repoTree,
+                contextData.localPath,
+              );
+            } else {
+              // No repository context
+              response = await openaiService.sendMessage(userMessageContent);
+            }
+            break;
+          }
+
+          default:
+            // Fallback message if the provider is not implemented
+            response = `Using ${currentModel.name} (${currentModel.provider}):\n\nThis model provider is not yet implemented.`;
         }
 
-        // Add the AI response to the chat
+        // Add the AI response to the chat with the customized advisor sender
         addMessage({
-          role: "assistant" as const,
+          role: "model-response" as const,
           content: response,
+          sender: advisorSender, // Use the advisor sender to ensure correct display
         });
 
         // Clear the safety timeout
@@ -136,7 +256,7 @@ export function useMessageSubmission({
       } catch (error) {
         // Add an error message
         addMessage({
-          role: "assistant" as const,
+          role: "assistant-informational" as const,
           content:
             error instanceof Error
               ? `Error: ${error.message}`

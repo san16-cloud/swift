@@ -1,5 +1,9 @@
 "use client";
 
+import { EXCLUDED_MESSAGE_ROLES, EXCLUDED_MESSAGE_SENDERS } from "../../context/chat/types";
+import { BaseModelService } from "./base-model-service";
+import { Personality } from "../types/personality";
+
 /**
  * Gemini service for handling communication with Google's Gemini API
  */
@@ -32,41 +36,25 @@ interface GeminiResponse {
   }[];
 }
 
-export class GeminiService {
+export class GeminiService extends BaseModelService {
   private apiUrl: string;
-  private apiKey: string;
-  private previousMessages: { role: string; content: string }[] = [];
-  private repositoryContext: string | null = null;
 
-  constructor(apiKey: string) {
-    this.apiKey = apiKey;
+  constructor(apiKey: string, personality?: Personality) {
+    super(apiKey);
     // Using Gemini 1.5 Flash model, which uses less credits and is more cost-effective
     this.apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+
+    // Set personality if provided
+    if (personality) {
+      this.setPersonality(personality);
+    }
   }
 
   /**
-   * Format repository context for the prompt
+   * Get the provider name for logging
    */
-  private formatRepoContext(repoName: string, repoUrl: string, readmeContent?: string): string {
-    let context = `You are assisting with a code repository: ${repoName} (${repoUrl}).\n\n`;
-
-    if (readmeContent) {
-      // Limit README content to avoid token limits
-      const truncatedReadme =
-        readmeContent.length > 10000
-          ? readmeContent.substring(0, 10000) + "... [README truncated due to length]"
-          : readmeContent;
-
-      context += `Repository README content:\n\`\`\`markdown\n${truncatedReadme}\n\`\`\`\n\n`;
-    }
-
-    context +=
-      "Please provide helpful and detailed answers based on this repository context. When referring to code from the repository, use proper formatting with code blocks.";
-
-    // Store the repository context for reuse
-    this.repositoryContext = context;
-
-    return context;
+  protected getProviderName(): string {
+    return "Gemini";
   }
 
   /**
@@ -76,19 +64,16 @@ export class GeminiService {
     parts: { text: string }[];
     role: string;
   } {
-    let systemMessage = "You are a helpful coding assistant. ";
+    // Start with our main context template or personality prompt
+    let systemMessage = this.getSystemPrompt();
 
+    // Append repository-specific context if available
     if (repoContext) {
-      systemMessage += repoContext;
+      systemMessage += "\n\n" + repoContext;
     } else if (this.repositoryContext) {
       // Reuse stored repository context if available
-      systemMessage += this.repositoryContext;
-    } else {
-      systemMessage += "You help users with programming questions and provide code examples when appropriate.";
+      systemMessage += "\n\n" + this.repositoryContext;
     }
-
-    // Add instructions for code formatting
-    systemMessage += " When sharing code, use markdown format with language-specific syntax highlighting.";
 
     return {
       parts: [{ text: systemMessage }],
@@ -98,6 +83,7 @@ export class GeminiService {
 
   /**
    * Adds the current conversation to the message for context
+   * Filters out any message roles that should be excluded
    */
   private addConversationContext(messageContent: string): string {
     if (this.previousMessages.length === 0) {
@@ -106,12 +92,21 @@ export class GeminiService {
 
     // Include up to 5 previous message pairs for context
     const maxContextPairs = 5;
-    const contextMessages = this.previousMessages.slice(-maxContextPairs * 2);
+    // Filter out excluded message roles
+    const filteredMessages = this.previousMessages.filter((msg) => !EXCLUDED_MESSAGE_ROLES.includes(msg.role as any));
+    const contextMessages = filteredMessages.slice(-maxContextPairs * 2);
 
     let context = "Previous conversation:\n";
 
     contextMessages.forEach((msg) => {
-      const role = msg.role === "user" ? "User" : "Assistant";
+      const role =
+        msg.role === "user"
+          ? "User"
+          : msg.role === "model-response"
+            ? "Assistant"
+            : msg.role === "assistant"
+              ? "Assistant"
+              : "System";
       context += `${role}: ${msg.content}\n\n`;
     });
 
@@ -123,19 +118,35 @@ export class GeminiService {
   /**
    * Sends a message to Gemini API and receives a response
    */
-  async sendMessage(message: string, repoName?: string, repoUrl?: string, readmeContent?: string): Promise<string> {
+  async sendMessage(
+    message: string,
+    repoName?: string,
+    repoUrl?: string,
+    readmeContent?: string,
+    repoTree?: string,
+    repoLocalPath?: string,
+  ): Promise<string> {
     try {
       console.warn("Sending message to Gemini API:", {
         messageLength: message.length,
         hasRepoContext: Boolean(repoName && repoUrl),
         readmeContentLength: readmeContent?.length || 0,
+        hasRepoTree: Boolean(repoTree),
+        hasPersonalityPrompt: Boolean(this.personalityPrompt),
       });
 
       // Add repository context if available
       let repoContext = this.repositoryContext;
+
       if (repoName && repoUrl) {
+        // Try to extract config files if we have repository tree and path
+        let configFiles = {};
+        if (repoTree && repoLocalPath) {
+          configFiles = await this.extractConfigFiles(repoTree, repoLocalPath);
+        }
+
         // Generate new repository context if repository parameters are provided
-        repoContext = this.formatRepoContext(repoName, repoUrl, readmeContent);
+        repoContext = this.formatRepoContext(repoName, repoUrl, readmeContent, repoTree, configFiles);
       }
 
       // Add conversation context to the message
@@ -157,6 +168,13 @@ export class GeminiService {
           topK: 40,
         },
       };
+
+      // Debug logging for full request
+      if (this.debug) {
+        console.log("===== GEMINI REQUEST =====");
+        console.log(JSON.stringify(requestBody, null, 2));
+        console.log("==========================");
+      }
 
       console.warn("Calling Gemini API with repository context...");
       const response = await fetch(`${this.apiUrl}?key=${this.apiKey}`, {
@@ -186,6 +204,13 @@ export class GeminiService {
       const data = (await response.json()) as GeminiResponse;
       console.warn("Received response from Gemini API");
 
+      // Debug logging for full response
+      if (this.debug) {
+        console.log("===== GEMINI RESPONSE =====");
+        console.log(JSON.stringify(data, null, 2));
+        console.log("===========================");
+      }
+
       if (!data.candidates || data.candidates.length === 0) {
         throw new Error("No response generated by Gemini API.");
       }
@@ -194,7 +219,7 @@ export class GeminiService {
 
       // Store messages for conversation context
       this.previousMessages.push({ role: "user", content: message });
-      this.previousMessages.push({ role: "assistant", content: generatedText });
+      this.previousMessages.push({ role: "model-response", content: generatedText });
 
       // Limit conversation history to last 10 messages (5 exchanges)
       if (this.previousMessages.length > 10) {
@@ -211,22 +236,5 @@ export class GeminiService {
 
       throw new Error("Sorry, something went wrong while communicating with the Gemini API.");
     }
-  }
-
-  /**
-   * Clears the conversation history and repository context
-   */
-  clearConversation(): void {
-    this.previousMessages = [];
-    this.repositoryContext = null;
-  }
-
-  /**
-   * Updates the repository context without sending a message
-   * Useful when switching repositories
-   */
-  updateRepositoryContext(repoName: string, repoUrl: string, readmeContent?: string): void {
-    this.formatRepoContext(repoName, repoUrl, readmeContent);
-    console.warn("Repository context updated for:", repoName);
   }
 }
