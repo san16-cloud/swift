@@ -12,6 +12,8 @@ import {
   isRepositoryReadyForChat,
 } from "../../lib/services/repo-download-service";
 import { createAdvisorSender, getModelById } from "../../lib/services/entity-service";
+import { DependencyGraph, ApiSurface } from "../../lib/services/repo-analysis-service";
+import { FileMetadata } from "../../types/repository";
 
 // Define the DownloadedRepository interface
 interface DownloadedRepository extends Repository {
@@ -21,7 +23,11 @@ interface DownloadedRepository extends Repository {
   size?: number;
   readmeContent?: string;
   repoTree?: string;
-  detailedTree?: any; // Added to support detailed tree data
+  detailedTree?: any;
+  dependencyGraph?: DependencyGraph;
+  apiSurface?: ApiSurface;
+  fileMetadata?: Record<string, FileMetadata>;
+  directoryMetadata?: Record<string, FileMetadata>;
   status?: RepositoryStatus;
 }
 
@@ -164,6 +170,10 @@ export function useMessageSubmission({
                 readmeContent: downloadedRepo.readmeContent || "",
                 repoTree: downloadedRepo.repoTree || "",
                 detailedTree: downloadedRepo.detailedTree || undefined,
+                dependencyGraph: downloadedRepo.dependencyGraph || undefined,
+                apiSurface: downloadedRepo.apiSurface || undefined,
+                fileMetadata: downloadedRepo.fileMetadata || undefined,
+                directoryMetadata: downloadedRepo.directoryMetadata || undefined,
                 localPath: downloadedRepo.localPath || "",
               }
             : undefined;
@@ -172,7 +182,17 @@ export function useMessageSubmission({
           hasContext: Boolean(contextData),
           repoName: contextData?.repoName,
           hasDetailedTree: Boolean(contextData?.detailedTree),
+          hasDependencyGraph: Boolean(contextData?.dependencyGraph),
+          hasApiSurface: Boolean(contextData?.apiSurface),
+          hasFileMetadata: Boolean(contextData?.fileMetadata),
+          hasDirectoryMetadata: Boolean(contextData?.directoryMetadata),
           detailedTreeSize: contextData?.detailedTree ? JSON.stringify(contextData.detailedTree).length : 0,
+          dependencyGraphSize: contextData?.dependencyGraph ? JSON.stringify(contextData.dependencyGraph).length : 0,
+          apiSurfaceSize: contextData?.apiSurface ? JSON.stringify(contextData.apiSurface).length : 0,
+          fileMetadataSize: contextData?.fileMetadata ? JSON.stringify(contextData.fileMetadata).length : 0,
+          directoryMetadataSize: contextData?.directoryMetadata
+            ? JSON.stringify(contextData.directoryMetadata).length
+            : 0,
         });
 
         // Use appropriate service based on selected model provider
@@ -181,7 +201,7 @@ export function useMessageSubmission({
             const geminiService = new GeminiService(currentModel.apiKey, personality);
 
             if (contextData) {
-              // Use repository context when available with tree data
+              // Use repository context when available with all analysis data
               response = await geminiService.sendMessage(
                 userMessageContent,
                 contextData.repoName,
@@ -189,7 +209,11 @@ export function useMessageSubmission({
                 contextData.readmeContent,
                 contextData.repoTree,
                 contextData.localPath,
-                contextData.detailedTree, // Added detailed tree
+                contextData.detailedTree,
+                contextData.dependencyGraph,
+                contextData.apiSurface,
+                contextData.fileMetadata,
+                contextData.directoryMetadata,
               );
             } else {
               // No repository context
@@ -206,7 +230,7 @@ export function useMessageSubmission({
             );
 
             if (contextData) {
-              // Use repository context when available with tree data
+              // Use repository context when available with all analysis data
               response = await claudeService.sendMessage(
                 userMessageContent,
                 contextData.repoName,
@@ -214,7 +238,11 @@ export function useMessageSubmission({
                 contextData.readmeContent,
                 contextData.repoTree,
                 contextData.localPath,
-                contextData.detailedTree, // Added detailed tree
+                contextData.detailedTree,
+                contextData.dependencyGraph,
+                contextData.apiSurface,
+                contextData.fileMetadata,
+                contextData.directoryMetadata,
               );
             } else {
               // No repository context
@@ -231,7 +259,7 @@ export function useMessageSubmission({
             );
 
             if (contextData) {
-              // Use repository context when available with tree data
+              // Use repository context when available with all analysis data
               response = await openaiService.sendMessage(
                 userMessageContent,
                 contextData.repoName,
@@ -239,7 +267,11 @@ export function useMessageSubmission({
                 contextData.readmeContent,
                 contextData.repoTree,
                 contextData.localPath,
-                contextData.detailedTree, // Added detailed tree
+                contextData.detailedTree,
+                contextData.dependencyGraph,
+                contextData.apiSurface,
+                contextData.fileMetadata,
+                contextData.directoryMetadata,
               );
             } else {
               // No repository context
